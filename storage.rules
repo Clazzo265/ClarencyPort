@@ -1,0 +1,46 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner() {
+      return isSignedIn() && request.auth.token.email == 'cchilongo88@gmail.com';
+    }
+
+    function isValidImageUpload() {
+      return request.resource.size > 0 &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    function isValidPdfUpload() {
+      return request.resource.size > 0 &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType == 'application/pdf';
+    }
+
+    match /portfolio/images/{fileName} {
+      allow read: if true;
+      allow write: if isOwner() && isValidImageUpload() && fileName.matches('^[a-zA-Z0-9_\\-\\.]+$');
+      allow delete: if isOwner();
+    }
+
+    match /portfolio/cv/{fileName} {
+      allow read: if true;
+      allow write: if isOwner() && isValidPdfUpload() && fileName.matches('^[a-zA-Z0-9_\\-\\.]+$');
+      allow delete: if isOwner();
+    }
+
+    match /portfolio/research/{fileName} {
+      allow read: if true;
+      allow write: if isOwner() && isValidPdfUpload() && fileName.matches('^[a-zA-Z0-9_\\-\\.]+$');
+      allow delete: if isOwner();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

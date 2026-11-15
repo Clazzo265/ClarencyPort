@@ -1,0 +1,258 @@
+{
+  "entities": {
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Publicly visible portfolio identity, biography, CV download configuration, and social links.",
+      "type": "object",
+      "properties": {
+        "ownerName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "headline": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "tagline": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "location": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "shortBio": { "type": "string", "minLength": 10, "maxLength": 1200 },
+        "expandedBio": { "type": "string", "maxLength": 4000 },
+        "availabilityNote": { "type": "string", "maxLength": 240 },
+        "portraitUrl": { "type": "string", "maxLength": 1000 },
+        "githubUrl": { "type": "string", "maxLength": 500 },
+        "linkedinUrl": { "type": "string", "maxLength": 500 },
+        "xUrl": { "type": "string", "maxLength": 500 },
+        "publicEmail": { "type": "string", "maxLength": 160 },
+        "cvUrl": { "type": "string", "maxLength": 1000 },
+        "cvFileName": { "type": "string", "maxLength": 200 },
+        "cvEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerName", "headline", "tagline", "location", "shortBio", "cvEnabled", "updatedAt"]
+    },
+    "PrivateSettings": {
+      "title": "PrivateSettings",
+      "description": "Administrator-only configuration, private notes, and onboarding state.",
+      "type": "object",
+      "properties": {
+        "onboardingCompleted": { "type": "boolean" },
+        "contactRateLimitMinutes": { "type": "number" },
+        "securityContactNote": { "type": "string", "maxLength": 1000 },
+        "siteAnnouncement": { "type": "string", "maxLength": 400 },
+        "maintenanceMode": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["onboardingCompleted", "maintenanceMode", "updatedAt"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Engineering or software project with lifecycle status, case-study fields, and publication visibility.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "slug": { "type": "string", "minLength": 2, "maxLength": 140, "pattern": "^[a-z0-9-]+$" },
+        "summary": { "type": "string", "minLength": 10, "maxLength": 500 },
+        "problem": { "type": "string", "maxLength": 3000 },
+        "intendedUsers": { "type": "string", "maxLength": 600 },
+        "solution": { "type": "string", "maxLength": 3000 },
+        "features": { "type": "array" },
+        "technologies": { "type": "array" },
+        "challenges": { "type": "string", "maxLength": 2500 },
+        "lessonsLearned": { "type": "string", "maxLength": 2500 },
+        "devStatus": {
+          "type": "string",
+          "enum": ["Completed", "In progress", "Prototype", "Experimental", "Archived"]
+        },
+        "publishState": {
+          "type": "string",
+          "enum": ["draft", "published", "archived", "trashed"]
+        },
+        "featured": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "imageUrl": { "type": "string", "maxLength": 1200 },
+        "githubUrl": { "type": "string", "maxLength": 500 },
+        "liveUrl": { "type": "string", "maxLength": 500 },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "title",
+        "slug",
+        "summary",
+        "technologies",
+        "devStatus",
+        "publishState",
+        "featured",
+        "sortOrder",
+        "ownerId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ProjectRevision": {
+      "title": "ProjectRevision",
+      "description": "Immutable revision snapshot of a project for version history and rollback.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "summary": { "type": "string", "minLength": 10, "maxLength": 500 },
+        "devStatus": { "type": "string", "maxLength": 40 },
+        "publishState": { "type": "string", "maxLength": 40 },
+        "note": { "type": "string", "maxLength": 300 },
+        "savedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "title", "summary", "devStatus", "publishState", "savedBy", "createdAt"]
+    },
+    "Skill": {
+      "title": "Skill",
+      "description": "Technical skill categorized by engineering discipline and honest proficiency level.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Programming Languages",
+            "Frontend Development",
+            "Backend Development",
+            "Mobile Development",
+            "Databases",
+            "Tools & Technologies"
+          ]
+        },
+        "proficiency": {
+          "type": "string",
+          "enum": ["Beginner", "Developing", "Intermediate", "Advanced"]
+        },
+        "description": { "type": "string", "maxLength": 400 },
+        "publishState": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "proficiency", "publishState", "sortOrder", "updatedAt"]
+    },
+    "ResearchEntry": {
+      "title": "ResearchEntry",
+      "description": "Research topic, academic investigation, or technical interest entry.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 180 },
+        "stage": {
+          "type": "string",
+          "enum": ["Research Interest", "Ongoing Investigation", "Completed Academic Work", "Published Research"]
+        },
+        "researchQuestion": { "type": "string", "maxLength": 600 },
+        "objectives": { "type": "string", "maxLength": 1200 },
+        "summary": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "methods": { "type": "string", "maxLength": 1500 },
+        "findings": { "type": "string", "maxLength": 1500 },
+        "references": { "type": "string", "maxLength": 1200 },
+        "documentUrl": { "type": "string", "maxLength": 800 },
+        "publishState": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "stage", "summary", "publishState", "updatedAt"]
+    },
+    "ExperienceEntry": {
+      "title": "ExperienceEntry",
+      "description": "Education, industrial attachment, relevant engineering experience, technical training, or verified certification.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "organization": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "entryType": {
+          "type": "string",
+          "enum": ["Education", "Relevant Experience", "Industrial Attachment", "Technical Training", "Certification"]
+        },
+        "dateRange": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "location": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 1500 },
+        "verificationUrl": { "type": "string", "maxLength": 500 },
+        "publishState": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "organization", "entryType", "dateRange", "publishState", "sortOrder", "updatedAt"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Private visitor inquiry submitted via the public contact form.",
+      "type": "object",
+      "properties": {
+        "senderName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "senderEmail": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "subject": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "message": { "type": "string", "minLength": 10, "maxLength": 4000 },
+        "status": { "type": "string", "enum": ["unread", "read", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderName", "senderEmail", "subject", "message", "status", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrative activity audit record.",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "actorEmail": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "action": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "targetType": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "summary": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "actorEmail", "action", "targetType", "targetId", "summary", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Trusted administrator grant record managed by the owner.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "role": { "type": "string", "enum": ["owner", "editor"] },
+        "addedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "addedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/siteContent/publicProfile": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Singleton document containing publicly visible portfolio identity, bio, social links, and CV configuration."
+    },
+    "/siteContent/privateSettings": {
+      "schema": { "$ref": "#/entities/PrivateSettings" },
+      "description": "Singleton document containing administrator-only settings and onboarding progress."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "Portfolio projects; only documents with publishState == 'published' are publicly readable."
+    },
+    "/projects/{projectId}/revisions/{revisionId}": {
+      "schema": { "$ref": "#/entities/ProjectRevision" },
+      "description": "Admin-only project revision snapshots for restoring previous versions."
+    },
+    "/skills/{skillId}": {
+      "schema": { "$ref": "#/entities/Skill" },
+      "description": "Technical skills; only documents with publishState == 'published' are publicly readable."
+    },
+    "/research/{researchId}": {
+      "schema": { "$ref": "#/entities/ResearchEntry" },
+      "description": "Research topics and investigations; only documents with publishState == 'published' are publicly readable."
+    },
+    "/experiences/{experienceId}": {
+      "schema": { "$ref": "#/entities/ExperienceEntry" },
+      "description": "Education, experience, industrial attachment, and training records; only published entries are publicly readable."
+    },
+    "/contactMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ContactMessage" },
+      "description": "Public write-once visitor inquiries readable and manageable strictly by verified administrators."
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Admin-only immutable audit log trail."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Trusted administrator records; never writable by non-owners."
+    }
+  }
+}

@@ -1,0 +1,319 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1 / Global Safety Net: Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwnerEmail() {
+      return isVerifiedUser() && request.auth.token.email == 'cchilongo88@gmail.com';
+    }
+
+    function isAdmin() {
+      return isOwnerEmail() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOptionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isValidStringList(listVal, maxItems) {
+      return listVal is list &&
+        listVal.size() <= maxItems &&
+        (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= 160));
+    }
+
+    // --- Validation Blueprints ---
+    function isValidPublicProfile(data) {
+      return data.keys().hasAll(['ownerName', 'headline', 'tagline', 'location', 'shortBio', 'cvEnabled', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'ownerName', 'headline', 'tagline', 'location', 'shortBio', 'expandedBio',
+          'availabilityNote', 'portraitUrl', 'githubUrl', 'linkedinUrl', 'xUrl',
+          'publicEmail', 'cvUrl', 'cvFileName', 'cvEnabled', 'updatedAt'
+        ]) &&
+        data.ownerName is string && data.ownerName.size() >= 2 && data.ownerName.size() <= 120 &&
+        data.headline is string && data.headline.size() >= 2 && data.headline.size() <= 160 &&
+        data.tagline is string && data.tagline.size() >= 2 && data.tagline.size() <= 200 &&
+        data.location is string && data.location.size() >= 2 && data.location.size() <= 120 &&
+        data.shortBio is string && data.shortBio.size() >= 10 && data.shortBio.size() <= 1200 &&
+        isOptionalString(data, 'expandedBio', 4000) &&
+        isOptionalString(data, 'availabilityNote', 240) &&
+        isOptionalString(data, 'portraitUrl', 1000) &&
+        isOptionalString(data, 'githubUrl', 500) &&
+        isOptionalString(data, 'linkedinUrl', 500) &&
+        isOptionalString(data, 'xUrl', 500) &&
+        isOptionalString(data, 'publicEmail', 160) &&
+        isOptionalString(data, 'cvUrl', 1000) &&
+        isOptionalString(data, 'cvFileName', 200) &&
+        data.cvEnabled is bool &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidPrivateSettings(data) {
+      return data.keys().hasAll(['onboardingCompleted', 'maintenanceMode', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'onboardingCompleted', 'contactRateLimitMinutes', 'securityContactNote',
+          'siteAnnouncement', 'maintenanceMode', 'updatedAt'
+        ]) &&
+        data.onboardingCompleted is bool &&
+        data.maintenanceMode is bool &&
+        (!('contactRateLimitMinutes' in data) || (data.contactRateLimitMinutes is number && data.contactRateLimitMinutes >= 0 && data.contactRateLimitMinutes <= 1440)) &&
+        isOptionalString(data, 'securityContactNote', 1000) &&
+        isOptionalString(data, 'siteAnnouncement', 400) &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll([
+          'title', 'slug', 'summary', 'technologies', 'devStatus',
+          'publishState', 'featured', 'sortOrder', 'ownerId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'title', 'slug', 'summary', 'problem', 'intendedUsers', 'solution',
+          'features', 'technologies', 'challenges', 'lessonsLearned',
+          'devStatus', 'publishState', 'featured', 'sortOrder',
+          'imageUrl', 'githubUrl', 'liveUrl', 'ownerId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+        data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 140 && data.slug.matches('^[a-z0-9\\-]+$') &&
+        data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 500 &&
+        isOptionalString(data, 'problem', 3000) &&
+        isOptionalString(data, 'intendedUsers', 600) &&
+        isOptionalString(data, 'solution', 3000) &&
+        (!('features' in data) || isValidStringList(data.features, 20)) &&
+        isValidStringList(data.technologies, 24) &&
+        isOptionalString(data, 'challenges', 2500) &&
+        isOptionalString(data, 'lessonsLearned', 2500) &&
+        data.devStatus in ['Completed', 'In progress', 'Prototype', 'Experimental', 'Archived'] &&
+        data.publishState in ['draft', 'published', 'archived', 'trashed'] &&
+        data.featured is bool &&
+        data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000 &&
+        isOptionalString(data, 'imageUrl', 1200) &&
+        isOptionalString(data, 'githubUrl', 500) &&
+        isOptionalString(data, 'liveUrl', 500) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidProjectRevision(data, projectId) {
+      return data.keys().hasAll(['projectId', 'title', 'summary', 'devStatus', 'publishState', 'savedBy', 'createdAt']) &&
+        data.keys().hasOnly(['projectId', 'title', 'summary', 'devStatus', 'publishState', 'note', 'savedBy', 'createdAt']) &&
+        data.projectId == projectId &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+        data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 500 &&
+        data.devStatus is string && data.devStatus.size() <= 40 &&
+        data.publishState is string && data.publishState.size() <= 40 &&
+        isOptionalString(data, 'note', 300) &&
+        data.savedBy == request.auth.uid &&
+        data.createdAt == request.time;
+    }
+
+    function isValidSkill(data) {
+      return data.keys().hasAll(['name', 'category', 'proficiency', 'publishState', 'sortOrder', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'category', 'proficiency', 'description', 'publishState', 'sortOrder', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        data.category in [
+          'Programming Languages', 'Frontend Development', 'Backend Development',
+          'Mobile Development', 'Databases', 'Tools & Technologies'
+        ] &&
+        data.proficiency in ['Beginner', 'Developing', 'Intermediate', 'Advanced'] &&
+        isOptionalString(data, 'description', 400) &&
+        data.publishState in ['draft', 'published', 'archived'] &&
+        data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000 &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidResearch(data) {
+      return data.keys().hasAll(['title', 'stage', 'summary', 'publishState', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'title', 'stage', 'researchQuestion', 'objectives', 'summary',
+          'methods', 'findings', 'references', 'documentUrl', 'publishState', 'updatedAt'
+        ]) &&
+        data.title is string && data.title.size() >= 3 && data.title.size() <= 180 &&
+        data.stage in ['Research Interest', 'Ongoing Investigation', 'Completed Academic Work', 'Published Research'] &&
+        isOptionalString(data, 'researchQuestion', 600) &&
+        isOptionalString(data, 'objectives', 1200) &&
+        data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 2000 &&
+        isOptionalString(data, 'methods', 1500) &&
+        isOptionalString(data, 'findings', 1500) &&
+        isOptionalString(data, 'references', 1200) &&
+        isOptionalString(data, 'documentUrl', 800) &&
+        data.publishState in ['draft', 'published', 'archived'] &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidExperience(data) {
+      return data.keys().hasAll(['title', 'organization', 'entryType', 'dateRange', 'publishState', 'sortOrder', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'title', 'organization', 'entryType', 'dateRange', 'location',
+          'description', 'verificationUrl', 'publishState', 'sortOrder', 'updatedAt'
+        ]) &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 160 &&
+        data.organization is string && data.organization.size() >= 2 && data.organization.size() <= 160 &&
+        data.entryType in ['Education', 'Relevant Experience', 'Industrial Attachment', 'Technical Training', 'Certification'] &&
+        data.dateRange is string && data.dateRange.size() >= 2 && data.dateRange.size() <= 80 &&
+        isOptionalString(data, 'location', 120) &&
+        isOptionalString(data, 'description', 1500) &&
+        isOptionalString(data, 'verificationUrl', 500) &&
+        data.publishState in ['draft', 'published', 'archived'] &&
+        data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000 &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidContactMessageCreate(data) {
+      return data.keys().hasAll(['senderName', 'senderEmail', 'subject', 'message', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['senderName', 'senderEmail', 'subject', 'message', 'status', 'createdAt']) &&
+        data.senderName is string && data.senderName.size() >= 2 && data.senderName.size() <= 120 &&
+        data.senderEmail is string && data.senderEmail.size() >= 5 && data.senderEmail.size() <= 160 &&
+        data.senderEmail.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
+        data.subject is string && data.subject.size() >= 2 && data.subject.size() <= 180 &&
+        data.message is string && data.message.size() >= 10 && data.message.size() <= 4000 &&
+        data.status == 'unread' &&
+        data.createdAt == request.time;
+    }
+
+    function isValidContactMessageUpdate(data) {
+      return data.keys().hasAll(['senderName', 'senderEmail', 'subject', 'message', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['senderName', 'senderEmail', 'subject', 'message', 'status', 'createdAt']) &&
+        data.status in ['unread', 'read', 'archived'] &&
+        data.senderName == existing().senderName &&
+        data.senderEmail == existing().senderEmail &&
+        data.subject == existing().subject &&
+        data.message == existing().message &&
+        data.createdAt == existing().createdAt;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['actorUid', 'actorEmail', 'action', 'targetType', 'targetId', 'summary', 'createdAt']) &&
+        data.keys().hasOnly(['actorUid', 'actorEmail', 'action', 'targetType', 'targetId', 'summary', 'createdAt']) &&
+        data.actorUid == request.auth.uid &&
+        data.actorEmail is string && data.actorEmail.size() >= 3 && data.actorEmail.size() <= 160 &&
+        data.action is string && data.action.size() >= 2 && data.action.size() <= 100 &&
+        data.targetType is string && data.targetType.size() >= 2 && data.targetType.size() <= 60 &&
+        data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+        data.summary is string && data.summary.size() >= 2 && data.summary.size() <= 300 &&
+        data.createdAt == request.time;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'role', 'addedBy', 'createdAt']) &&
+        data.keys().hasOnly(['email', 'role', 'addedBy', 'createdAt']) &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 160 &&
+        data.role in ['owner', 'editor'] &&
+        data.addedBy == request.auth.uid &&
+        data.createdAt == request.time;
+    }
+
+    // --- Collection Match Blocks ---
+    match /siteContent/publicProfile {
+      allow get: if true;
+      allow create, update: if isAdmin() && isValidPublicProfile(incoming());
+      allow delete: if false;
+    }
+
+    match /siteContent/privateSettings {
+      allow get: if isAdmin();
+      allow create, update: if isAdmin() && isValidPrivateSettings(incoming());
+      allow delete: if false;
+    }
+
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId) && (existing().publishState == 'published' || isAdmin());
+      allow list: if existing().publishState == 'published' || isAdmin();
+      allow create: if isAdmin() && isValidId(projectId) && isValidProject(incoming()) &&
+        incoming().ownerId == request.auth.uid && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(projectId) && isValidProject(incoming()) &&
+        incoming().ownerId == existing().ownerId && incoming().createdAt == existing().createdAt && (
+          // Action: PublishStateTransition (publish, unpublish, archive, trash, restore)
+          incoming().diff(existing()).affectedKeys().hasOnly(['publishState', 'updatedAt']) ||
+          // Action: FeatureOrReorder
+          incoming().diff(existing()).affectedKeys().hasOnly(['featured', 'sortOrder', 'updatedAt']) ||
+          // Action: FullContentEdit (Admin)
+          isAdmin()
+        );
+      allow delete: if isAdmin() && isValidId(projectId);
+
+      match /revisions/{revisionId} {
+        allow get: if isAdmin() && isValidId(projectId) && isValidId(revisionId) &&
+          exists(/databases/$(database)/documents/projects/$(projectId));
+        allow list: if isAdmin() && isValidId(projectId);
+        allow create: if isAdmin() && isValidId(projectId) && isValidId(revisionId) &&
+          isValidProjectRevision(incoming(), projectId) &&
+          exists(/databases/$(database)/documents/projects/$(projectId));
+        allow update: if false;
+        allow delete: if isAdmin() && isValidId(projectId) && isValidId(revisionId);
+      }
+    }
+
+    match /skills/{skillId} {
+      allow get: if isValidId(skillId) && (existing().publishState == 'published' || isAdmin());
+      allow list: if existing().publishState == 'published' || isAdmin();
+      allow create, update: if isAdmin() && isValidId(skillId) && isValidSkill(incoming());
+      allow delete: if isAdmin() && isValidId(skillId);
+    }
+
+    match /research/{researchId} {
+      allow get: if isValidId(researchId) && (existing().publishState == 'published' || isAdmin());
+      allow list: if existing().publishState == 'published' || isAdmin();
+      allow create, update: if isAdmin() && isValidId(researchId) && isValidResearch(incoming());
+      allow delete: if isAdmin() && isValidId(researchId);
+    }
+
+    match /experiences/{experienceId} {
+      allow get: if isValidId(experienceId) && (existing().publishState == 'published' || isAdmin());
+      allow list: if existing().publishState == 'published' || isAdmin();
+      allow create, update: if isAdmin() && isValidId(experienceId) && isValidExperience(incoming());
+      allow delete: if isAdmin() && isValidId(experienceId);
+    }
+
+    match /contactMessages/{messageId} {
+      allow get: if isAdmin() && isValidId(messageId);
+      allow list: if isAdmin();
+      allow create: if isValidId(messageId) && isValidContactMessageCreate(incoming());
+      allow update: if isAdmin() && isValidId(messageId) && isValidContactMessageUpdate(incoming()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isAdmin() && isValidId(messageId);
+    }
+
+    match /auditLogs/{logId} {
+      allow get: if isAdmin() && isValidId(logId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if false;
+    }
+
+    match /admins/{adminId} {
+      allow get: if isAdmin() && isValidId(adminId);
+      allow list: if isAdmin();
+      allow create: if isOwnerEmail() && isValidId(adminId) && isValidAdminUser(incoming());
+      allow update: if false;
+      allow delete: if isOwnerEmail() && isValidId(adminId) && adminId != request.auth.uid;
+    }
+  }
+}

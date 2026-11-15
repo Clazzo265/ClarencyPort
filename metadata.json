@@ -1,0 +1,8 @@
+{
+  "name": "KLARENCY",
+  "description": "Personal portfolio and secure content management platform for Clarence L. Chilongo — Computer Engineering Student & Software Developer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
