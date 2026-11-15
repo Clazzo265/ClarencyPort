@@ -1,5 +1,6 @@
+import { AnimatePresence, MotionConfig } from 'motion/react';
 import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SyncStatusProvider } from './context/SyncStatusContext';
 import { PublicPortfolioPage } from './pages/PublicPortfolioPage';
@@ -48,33 +49,44 @@ class AppErrorBoundary extends Component<
   }
 }
 
+function AnimatedRoutes() {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PublicPortfolioPage />} />
+        <Route
+          path="/admin"
+          element={
+            <Suspense
+              fallback={
+                <div className="flex min-h-screen items-center justify-center bg-[#050816] text-sm text-[#94A3B8]">
+                  Loading Owner Studio…
+                </div>
+              }
+            >
+              <AdminPage />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 export default function App() {
   return (
     <AppErrorBoundary>
-      <AuthProvider>
-        <SyncStatusProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<PublicPortfolioPage />} />
-              <Route
-                path="/admin"
-                element={
-                  <Suspense
-                    fallback={
-                      <div className="flex min-h-screen items-center justify-center bg-[#050816] text-sm text-[#94A3B8]">
-                        Loading Owner Studio…
-                      </div>
-                    }
-                  >
-                    <AdminPage />
-                  </Suspense>
-                }
-              />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </SyncStatusProvider>
-      </AuthProvider>
+      <MotionConfig reducedMotion="user">
+        <AuthProvider>
+          <SyncStatusProvider>
+            <BrowserRouter>
+              <AnimatedRoutes />
+            </BrowserRouter>
+          </SyncStatusProvider>
+        </AuthProvider>
+      </MotionConfig>
     </AppErrorBoundary>
   );
 }

@@ -2,18 +2,27 @@ import { Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSyncStatus } from '../../context/SyncStatusContext';
 import { savePrivateSettings, savePublicProfile } from '../../services/portfolioService';
-import type { PrivateSettings, PublicProfile } from '../../types/portfolio';
+import type {
+  DriveWorkspaceConfig,
+  MediaFileRecord,
+  PrivateSettings,
+  PublicProfile,
+} from '../../types/portfolio';
 import { publicProfileSchema } from '../../utils/validation';
 import { MediaUploadField } from './MediaUploadField';
 
 interface ProfileSettingsEditorProps {
   profile: PublicProfile;
   privateSettings: PrivateSettings;
+  mediaFiles?: MediaFileRecord[];
+  driveConfig?: DriveWorkspaceConfig | null;
 }
 
 export function ProfileSettingsEditor({
   profile,
   privateSettings,
+  mediaFiles = [],
+  driveConfig = null,
 }: ProfileSettingsEditorProps) {
   const { setSaving, setSaved, setUnsaved, setSyncError, isOnline } = useSyncStatus();
   const [form, setForm] = useState<PublicProfile>(profile);
@@ -51,11 +60,13 @@ export function ProfileSettingsEditor({
       expandedBio: form.expandedBio ?? '',
       availabilityNote: form.availabilityNote ?? '',
       portraitUrl: form.portraitUrl ?? '',
+      portraitMediaId: form.portraitMediaId ?? '',
       githubUrl: form.githubUrl ?? '',
       linkedinUrl: form.linkedinUrl ?? '',
       xUrl: form.xUrl ?? '',
       publicEmail: form.publicEmail ?? '',
       cvUrl: form.cvUrl ?? '',
+      cvMediaId: form.cvMediaId ?? '',
       cvFileName: form.cvFileName ?? '',
       cvEnabled: form.cvEnabled,
     });
@@ -216,10 +227,20 @@ export function ProfileSettingsEditor({
 
         <MediaUploadField
           label="Owner portrait photo (optional)"
-          helperText="Upload a real photograph from your device. When empty, the homepage renders an architectural visual without fabricating a portrait."
+          helperText="Upload a real photograph from your device or choose from Media Library. Supports 1:1 square cropping."
           folder="images"
+          category="profile"
+          contextSlug="clarence"
           value={form.portraitUrl ?? ''}
-          onChange={(url) => updateProfile('portraitUrl', url)}
+          mediaId={form.portraitMediaId}
+          mediaFiles={mediaFiles}
+          driveConfig={driveConfig}
+          allowCropToggle
+          cropSquareDefault
+          onChange={(url, _name, nextMediaId) => {
+            updateProfile('portraitUrl', url);
+            updateProfile('portraitMediaId', nextMediaId ?? '');
+          }}
         />
       </section>
 
@@ -230,13 +251,19 @@ export function ProfileSettingsEditor({
 
         <MediaUploadField
           label="Upload CV PDF"
-          helperText="Upload your latest CV PDF. Visitors only see a download button when public availability is enabled below."
+          helperText="Upload your latest CV PDF to Google Drive. Keep Private while drafting, then publish & toggle public download below when ready."
           folder="cv"
+          category="cv"
+          contextSlug="cv"
           value={form.cvUrl ?? ''}
+          mediaId={form.cvMediaId}
           fileName={form.cvFileName}
-          onChange={(url, name) => {
+          mediaFiles={mediaFiles}
+          driveConfig={driveConfig}
+          onChange={(url, name, nextMediaId) => {
             updateProfile('cvUrl', url);
             updateProfile('cvFileName', name ?? '');
+            updateProfile('cvMediaId', nextMediaId ?? '');
           }}
         />
 

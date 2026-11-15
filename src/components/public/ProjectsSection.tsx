@@ -1,8 +1,12 @@
 import { ArrowUpRight, Search } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import type { DevStatus, Project } from '../../types/portfolio';
+import { KLARENCY_DURATIONS, KLARENCY_EASE, KLARENCY_SPRING } from '../../utils/motionTokens';
 import { filterPublicProjects } from '../../utils/portfolioLogic';
 import { sanitizeExternalUrl } from '../../utils/validation';
+import { SectionReveal, StaggerItem } from '../motion/MotionPrimitives';
+import { SmartDriveImage } from '../shared/SmartDriveImage';
 
 const STATUS_FILTERS: Array<'All' | DevStatus> = [
   'All',
@@ -21,6 +25,7 @@ export function ProjectsSection({ projects, onSelectProject }: ProjectsSectionPr
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | DevStatus>('All');
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const shouldReduce = useReducedMotion();
 
   const filtered = useMemo(
     () =>
@@ -32,8 +37,8 @@ export function ProjectsSection({ projects, onSelectProject }: ProjectsSectionPr
   );
 
   return (
-    <section id="projects" className="border-b border-slate-400/15 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+    <section id="projects" className="relative z-10 border-b border-slate-400/15 py-16 sm:py-24">
+      <SectionReveal className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="font-display text-2xl font-semibold tracking-tight text-[#F8FAFC] sm:text-3xl">
@@ -59,7 +64,7 @@ export function ProjectsSection({ projects, onSelectProject }: ProjectsSectionPr
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects or stack..."
-              className="min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#080D1C] pl-10 pr-4 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/70 focus:border-[#22D3EE]"
+              className="min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#080D1C] pl-10 pr-4 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/70 transition-colors duration-150 focus:border-[#22D3EE]"
             />
           </div>
         </div>
@@ -78,13 +83,20 @@ export function ProjectsSection({ projects, onSelectProject }: ProjectsSectionPr
                 role="tab"
                 aria-selected={active}
                 onClick={() => setStatusFilter(status)}
-                className={`min-h-[40px] rounded-lg px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`relative min-h-[40px] rounded-lg px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   active
-                    ? 'bg-[#2563EB] text-white'
+                    ? 'text-white'
                     : 'border border-slate-400/20 bg-[#101A2E]/70 text-[#94A3B8] hover:text-[#F8FAFC]'
                 }`}
               >
-                {status}
+                {active && (
+                  <motion.span
+                    layoutId="projects-status-tab"
+                    transition={shouldReduce ? { duration: 0 } : KLARENCY_SPRING}
+                    className="absolute inset-0 rounded-lg bg-[#2563EB]"
+                  />
+                )}
+                <span className="relative z-10">{status}</span>
               </button>
             );
           })}
@@ -111,78 +123,97 @@ export function ProjectsSection({ projects, onSelectProject }: ProjectsSectionPr
             {filtered.map((project, idx) => {
               const imageUrl = sanitizeExternalUrl(project.imageUrl);
               const showImage = Boolean(imageUrl) && !failedImages[project.id];
-              const isLead = project.featured && idx === 0 && filtered.length % 2 === 1 && filtered.length > 1;
+              const isLead =
+                project.featured && idx === 0 && filtered.length % 2 === 1 && filtered.length > 1;
 
               return (
-                <article
+                <StaggerItem
                   key={project.id}
-                  className={`kl-surface group overflow-hidden rounded-2xl transition-colors duration-200 hover:border-[#22D3EE]/40 ${
-                    isLead ? 'flex flex-col md:col-span-2 md:grid md:grid-cols-12 md:items-stretch' : 'flex flex-col'
-                  }`}
+                  index={idx}
+                  className={isLead ? 'md:col-span-2' : ''}
                 >
-                  <div
-                    className={`relative overflow-hidden bg-[#080D1C] ${
-                      isLead ? 'aspect-[16/9] md:col-span-7 md:aspect-auto md:min-h-[320px]' : 'aspect-[4/3]'
+                  <motion.article
+                    whileHover={shouldReduce ? undefined : { y: -3 }}
+                    whileTap={shouldReduce ? undefined : { scale: 0.992 }}
+                    transition={{ duration: KLARENCY_DURATIONS.fast, ease: KLARENCY_EASE }}
+                    className={`kl-surface group h-full overflow-hidden rounded-2xl transition-colors duration-200 hover:border-[#22D3EE]/45 ${
+                      isLead
+                        ? 'flex flex-col md:grid md:grid-cols-12 md:items-stretch'
+                        : 'flex flex-col'
                     }`}
                   >
-                    {showImage ? (
-                      <img
-                        src={imageUrl}
-                        alt={`${project.title} showcase`}
-                        referrerPolicy="no-referrer"
-                        onError={() =>
-                          setFailedImages((prev) => ({ ...prev, [project.id]: true }))
-                        }
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-end bg-gradient-to-br from-[#080D1C] via-[#101A2E] to-[#050816] p-6">
-                        <span className="font-display text-lg font-semibold text-[#F8FAFC]/80">
-                          {project.title}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={`flex flex-1 flex-col justify-between p-6 ${isLead ? 'md:col-span-5 md:p-8' : ''}`}>
-                    <div>
-                      <p className="text-xs font-medium text-[#22D3EE]">
-                        {project.devStatus}
-                        {project.technologies.length > 0 &&
-                          ` · ${project.technologies.slice(0, 4).join(' · ')}`}
-                      </p>
-
-                      <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-[#F8FAFC]">
-                        {project.title}
-                      </h3>
-
-                      <p className="mt-2.5 text-sm leading-relaxed text-[#94A3B8]">
-                        {project.summary}
-                      </p>
-                    </div>
-
-                    <div className="mt-6 flex items-center justify-between border-t border-slate-400/15 pt-4">
-                      <button
-                        type="button"
-                        onClick={() => onSelectProject(project)}
-                        aria-label={`Inspect case study for ${project.title}`}
-                        className="inline-flex min-h-[40px] items-center gap-1.5 text-sm font-semibold text-[#F8FAFC] transition-colors hover:text-[#22D3EE]"
-                      >
-                        <span>Read Case Study</span>
-                        <ArrowUpRight className="h-4 w-4 text-[#22D3EE]" aria-hidden="true" />
-                      </button>
-
-                      {project.featured && (
-                        <span className="font-mono text-xs text-[#94A3B8]">Featured</span>
+                    <div
+                      className={`relative overflow-hidden bg-[#080D1C] ${
+                        isLead
+                          ? 'aspect-[16/9] md:col-span-7 md:aspect-auto md:min-h-[320px]'
+                          : 'aspect-[4/3]'
+                      }`}
+                    >
+                      {showImage ? (
+                        <SmartDriveImage
+                          src={imageUrl}
+                          alt={`${project.title} showcase`}
+                          onAllFailed={() =>
+                            setFailedImages((prev) => ({ ...prev, [project.id]: true }))
+                          }
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-end bg-gradient-to-br from-[#080D1C] via-[#101A2E] to-[#050816] p-6">
+                          <span className="font-display text-lg font-semibold text-[#F8FAFC]/80">
+                            {project.title}
+                          </span>
+                        </div>
                       )}
                     </div>
-                  </div>
-                </article>
+
+                    <div
+                      className={`flex flex-1 flex-col justify-between p-6 ${
+                        isLead ? 'md:col-span-5 md:p-8' : ''
+                      }`}
+                    >
+                      <div>
+                        <p className="text-xs font-medium text-[#22D3EE]">
+                          {project.devStatus}
+                          {project.technologies.length > 0 &&
+                            ` · ${project.technologies.slice(0, 4).join(' · ')}`}
+                        </p>
+
+                        <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-[#F8FAFC]">
+                          {project.title}
+                        </h3>
+
+                        <p className="mt-2.5 text-sm leading-relaxed text-[#94A3B8]">
+                          {project.summary}
+                        </p>
+                      </div>
+
+                      <div className="mt-6 flex items-center justify-between border-t border-slate-400/15 pt-4">
+                        <button
+                          type="button"
+                          onClick={() => onSelectProject(project)}
+                          aria-label={`Inspect case study for ${project.title}`}
+                          className="inline-flex min-h-[40px] items-center gap-1.5 text-sm font-semibold text-[#F8FAFC] transition-colors hover:text-[#22D3EE]"
+                        >
+                          <span>Read Case Study</span>
+                          <ArrowUpRight
+                            className="h-4 w-4 text-[#22D3EE] transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {project.featured && (
+                          <span className="font-mono text-xs text-[#94A3B8]">Featured</span>
+                        )}
+                      </div>
+                    </div>
+                  </motion.article>
+                </StaggerItem>
               );
             })}
           </div>
         )}
-      </div>
+      </SectionReveal>
     </section>
   );
 }

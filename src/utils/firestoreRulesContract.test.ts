@@ -28,6 +28,22 @@ test('firestore.rules enforces strict publishState == published on all public li
   }
 });
 
+test('firestore.rules restricts mediaFiles to PUBLIC only and locks down driveConfig', () => {
+  assert.match(
+    rulesText,
+    /match \/mediaFiles\/\{mediaId\}[\s\S]*?allow get:\s*if isValidId\(mediaId\) && \(existing\(\)\.visibility == 'PUBLIC' \|\| isAdmin\(\)\);/,
+  );
+  assert.match(
+    rulesText,
+    /match \/mediaFiles\/\{mediaId\}[\s\S]*?allow list:\s*if existing\(\)\.visibility == 'PUBLIC' \|\| isAdmin\(\);/,
+  );
+  assert.match(
+    rulesText,
+    /match \/siteContent\/driveConfig[\s\S]*?allow get:\s*if isAdmin\(\);/,
+  );
+  assert.doesNotMatch(rulesText, /accessToken|refreshToken|clientSecret/);
+});
+
 test('firestore.rules locks down contactMessages, privateSettings, auditLogs, and admins from public reads', () => {
   assert.match(rulesText, /match \/siteContent\/privateSettings[\s\S]*?allow get:\s*if isAdmin\(\);/);
   assert.match(rulesText, /match \/contactMessages\/\{messageId\}[\s\S]*?allow get:\s*if isAdmin\(\)/);
@@ -40,6 +56,8 @@ test('firebase-blueprint.json covers every Firestore path defined in firestore.r
   const expectedPaths = [
     '/siteContent/publicProfile',
     '/siteContent/privateSettings',
+    '/siteContent/driveConfig',
+    '/mediaFiles/{mediaId}',
     '/projects/{projectId}',
     '/projects/{projectId}/revisions/{revisionId}',
     '/skills/{skillId}',

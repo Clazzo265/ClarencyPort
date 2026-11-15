@@ -1,10 +1,18 @@
-import { Check, ChevronLeft, ChevronRight, Plus, Save, UploadCloud } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSyncStatus } from '../../context/SyncStatusContext';
 import { clearLocalDraft, loadLocalDraft, saveLocalDraft } from '../../services/indexedDbDrafts';
 import { saveProject } from '../../services/portfolioService';
-import type { DevStatus, Project, PublishState } from '../../types/portfolio';
+import type {
+  DevStatus,
+  DriveWorkspaceConfig,
+  MediaFileRecord,
+  Project,
+  PublishState,
+} from '../../types/portfolio';
 import { generateSlug, projectSchema, sanitizeExternalUrl } from '../../utils/validation';
+import { SmartDriveImage } from '../shared/SmartDriveImage';
+import { MediaLibraryPickerModal } from './MediaLibraryPickerModal';
 import { MediaUploadField } from './MediaUploadField';
 
 const WIZARD_DRAFT_KEY = 'klarency_wizard_project_draft';
@@ -48,6 +56,9 @@ interface WizardFormState {
   slug: string;
   summary: string;
   imageUrl: string;
+  coverMediaId: string;
+  galleryMediaIds: string[];
+  galleryImageUrls: string[];
   technologies: string[];
   devStatus: DevStatus;
   githubUrl: string;
@@ -62,6 +73,36 @@ interface WizardFormState {
   sortOrder: number;
 }
 
+function normalizeWizardState(
+  raw: Partial<WizardFormState> | null | undefined,
+  base?: Project | null,
+): WizardFormState {
+  const defaults = toInitialState(base);
+  if (!raw) return defaults;
+  return {
+    ...defaults,
+    ...raw,
+    title: typeof raw.title === 'string' ? raw.title : defaults.title,
+    slug: typeof raw.slug === 'string' ? raw.slug : defaults.slug,
+    summary: typeof raw.summary === 'string' ? raw.summary : defaults.summary,
+    imageUrl: typeof raw.imageUrl === 'string' ? raw.imageUrl : defaults.imageUrl,
+    coverMediaId: typeof raw.coverMediaId === 'string' ? raw.coverMediaId : defaults.coverMediaId,
+    galleryMediaIds: Array.isArray(raw.galleryMediaIds) ? raw.galleryMediaIds.map(String) : defaults.galleryMediaIds,
+    galleryImageUrls: Array.isArray(raw.galleryImageUrls) ? raw.galleryImageUrls.map(String) : defaults.galleryImageUrls,
+    technologies: Array.isArray(raw.technologies) ? raw.technologies.map(String) : defaults.technologies,
+    githubUrl: typeof raw.githubUrl === 'string' ? raw.githubUrl : defaults.githubUrl,
+    liveUrl: typeof raw.liveUrl === 'string' ? raw.liveUrl : defaults.liveUrl,
+    problem: typeof raw.problem === 'string' ? raw.problem : defaults.problem,
+    intendedUsers: typeof raw.intendedUsers === 'string' ? raw.intendedUsers : defaults.intendedUsers,
+    solution: typeof raw.solution === 'string' ? raw.solution : defaults.solution,
+    featuresText: typeof raw.featuresText === 'string' ? raw.featuresText : defaults.featuresText,
+    challenges: typeof raw.challenges === 'string' ? raw.challenges : defaults.challenges,
+    lessonsLearned: typeof raw.lessonsLearned === 'string' ? raw.lessonsLearned : defaults.lessonsLearned,
+    featured: typeof raw.featured === 'boolean' ? raw.featured : defaults.featured,
+    sortOrder: typeof raw.sortOrder === 'number' ? raw.sortOrder : defaults.sortOrder,
+  };
+}
+
 function toInitialState(editing?: Project | null): WizardFormState {
   if (!editing) {
     return {
@@ -69,6 +110,9 @@ function toInitialState(editing?: Project | null): WizardFormState {
       slug: '',
       summary: '',
       imageUrl: '',
+      coverMediaId: '',
+      galleryMediaIds: [],
+      galleryImageUrls: [],
       technologies: [],
       devStatus: 'In progress',
       githubUrl: '',
@@ -88,7 +132,10 @@ function toInitialState(editing?: Project | null): WizardFormState {
     slug: editing.slug,
     summary: editing.summary,
     imageUrl: editing.imageUrl ?? '',
-    technologies: editing.technologies,
+    coverMediaId: editing.coverMediaId ?? '',
+    galleryMediaIds: Array.isArray(editing.galleryMediaIds) ? editing.galleryMediaIds : [],
+    galleryImageUrls: Array.isArray(editing.galleryImageUrls) ? editing.galleryImageUrls : [],
+    technologies: Array.isArray(editing.technologies) ? editing.technologies : [],
     devStatus: editing.devStatus,
     githubUrl: editing.githubUrl ?? '',
     liveUrl: editing.liveUrl ?? '',
@@ -105,12 +152,16 @@ function toInitialState(editing?: Project | null): WizardFormState {
 
 interface GuidedProjectWizardProps {
   editingProject: Project | null;
+  mediaFiles?: MediaFileRecord[];
+  driveConfig?: DriveWorkspaceConfig | null;
   onFinished: () => void;
   onCancel: () => void;
 }
 
 export function GuidedProjectWizard({
   editingProject,
+  mediaFiles = [],
+  driveConfig = null,
   onFinished,
   onCancel,
 }: GuidedProjectWizardProps) {
@@ -122,6 +173,9 @@ export function GuidedProjectWizard({
   const [submitting, setSubmitting] = useState(false);
   const [uploadActive, setUploadActive] = useState(false);
   const [recoveredBanner, setRecoveredBanner] = useState(false);
+  const [galleryPickerOpen, setGalleryPickerOpen] = useState(false);
+  const [draftShotUrl, setDraftShotUrl] = useState('');
+  const [draftShotMediaId, setDraftShotMediaId] = useState('');
 
   const draftKey = editingProject ? `${WIZARD_DRAFT_KEY}_${editingProject.id}` : WIZARD_DRAFT_KEY;
 
@@ -130,9 +184,9 @@ export function GuidedProjectWizard({
     setStep(0);
     setStepError(null);
     let mounted = true;
-    void loadLocalDraft<WizardFormState>(draftKey).then((saved) => {
+    void loadLocalDraft<Partial<WizardFormState>>(draftKey).then((saved) => {
       if (mounted && saved?.data && !editingProject) {
-        setForm(saved.data);
+        setForm(normalizeWizardState(saved.data, null));
         setRecoveredBanner(true);
       }
     });
@@ -149,6 +203,16 @@ export function GuidedProjectWizard({
       if (key === 'title' && !editingProject) {
         next.slug = generateSlug(String(value));
       }
+      void saveLocalDraft(draftKey, next);
+      return next;
+    });
+  };
+
+  const updateFormPatch = (patch: Partial<WizardFormState>) => {
+    setStepError(null);
+    setUnsaved(true);
+    setForm((prev) => {
+      const next = normalizeWizardState({ ...prev, ...patch });
       void saveLocalDraft(draftKey, next);
       return next;
     });
@@ -238,6 +302,9 @@ export function GuidedProjectWizard({
       featured: form.featured,
       sortOrder: form.sortOrder,
       imageUrl: form.imageUrl.trim(),
+      coverMediaId: form.coverMediaId.trim(),
+      galleryMediaIds: form.galleryMediaIds,
+      galleryImageUrls: form.galleryImageUrls,
       githubUrl: form.githubUrl.trim(),
       liveUrl: form.liveUrl.trim(),
     };
@@ -276,6 +343,9 @@ export function GuidedProjectWizard({
           featured: parsed.data.featured,
           sortOrder: parsed.data.sortOrder,
           imageUrl: parsed.data.imageUrl,
+          coverMediaId: parsed.data.coverMediaId,
+          galleryMediaIds: parsed.data.galleryMediaIds,
+          galleryImageUrls: parsed.data.galleryImageUrls,
           githubUrl: parsed.data.githubUrl,
           liveUrl: parsed.data.liveUrl,
         },
@@ -418,18 +488,165 @@ export function GuidedProjectWizard({
         )}
 
         {step === 2 && (
-          <div className="space-y-4">
-            <h2 className="font-display text-lg font-semibold text-[#F8FAFC]">
-              Step 3 — Project photograph
-            </h2>
+          <div className="space-y-6">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-[#F8FAFC]">
+                Step 3 — Project Cover & Screenshot Gallery
+              </h2>
+              <p className="mt-1 text-xs text-[#94A3B8]">
+                Upload photos to Google Drive KLARENCY MEDIA or reuse assets already in your Media Library.
+              </p>
+            </div>
+
             <MediaUploadField
-              label="Select a photo from your phone gallery or computer"
-              helperText="Optional. You can upload a screenshot, hardware bench photo, or leave blank to use a clean gradient card."
+              label="Primary cover image (optional)"
+              helperText="Displayed on the main project card and at the top of the case study."
               folder="images"
+              category="project-cover"
+              contextSlug={form.slug || form.title}
               value={form.imageUrl}
-              onChange={(url) => updateField('imageUrl', url)}
+              mediaId={form.coverMediaId}
+              mediaFiles={mediaFiles}
+              driveConfig={driveConfig}
+              allowCropToggle
+              onChange={(url, _name, nextMediaId) => {
+                updateFormPatch({ imageUrl: url, coverMediaId: nextMediaId ?? '' });
+              }}
               onStatusChange={(s) => setUploadActive(s === 'uploading')}
             />
+
+            <div className="space-y-3 rounded-xl border border-slate-400/20 bg-[#050816]/60 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-[#F8FAFC]">
+                    Additional Screenshots Gallery ({(form.galleryImageUrls ?? []).length})
+                  </p>
+                  <p className="text-xs text-[#94A3B8]">
+                    Add extra UI screens or hardware bench photos to showcase inside the case study modal.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGalleryPickerOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-400/25 bg-[#080D1C] px-3.5 text-xs font-medium text-[#F8FAFC] hover:border-[#22D3EE]/50"
+                >
+                  <FolderOpen className="h-4 w-4 text-[#22D3EE]" aria-hidden="true" />
+                  <span>Pick Screenshot from Library</span>
+                </button>
+              </div>
+
+              {(form.galleryImageUrls ?? []).length > 0 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(form.galleryImageUrls ?? []).map((shotUrl, idx) => (
+                    <div
+                      key={`${shotUrl}-${idx}`}
+                      className="flex items-center gap-3 rounded-lg border border-slate-400/15 bg-[#080D1C] p-2.5"
+                    >
+                      <SmartDriveImage
+                        src={shotUrl}
+                        alt={`Screenshot ${idx + 1}`}
+                        className="h-14 w-20 shrink-0 rounded object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-[11px] text-[#22D3EE]">Slide #{idx + 1}</p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            aria-label={`Move screenshot ${idx + 1} up`}
+                            onClick={() => {
+                              const urls = [...(form.galleryImageUrls ?? [])];
+                              const ids = [...(form.galleryMediaIds ?? [])];
+                              [urls[idx - 1], urls[idx]] = [urls[idx], urls[idx - 1]];
+                              if (ids[idx] !== undefined && ids[idx - 1] !== undefined) {
+                                [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+                              }
+                              updateFormPatch({ galleryImageUrls: urls, galleryMediaIds: ids });
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-400/20 text-[#94A3B8] disabled:opacity-35"
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === (form.galleryImageUrls ?? []).length - 1}
+                            aria-label={`Move screenshot ${idx + 1} down`}
+                            onClick={() => {
+                              const urls = [...(form.galleryImageUrls ?? [])];
+                              const ids = [...(form.galleryMediaIds ?? [])];
+                              [urls[idx + 1], urls[idx]] = [urls[idx], urls[idx + 1]];
+                              if (ids[idx] !== undefined && ids[idx + 1] !== undefined) {
+                                [ids[idx + 1], ids[idx]] = [ids[idx], ids[idx + 1]];
+                              }
+                              updateFormPatch({ galleryImageUrls: urls, galleryMediaIds: ids });
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-400/20 text-[#94A3B8] disabled:opacity-35"
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Remove screenshot ${idx + 1}`}
+                            onClick={() => {
+                              updateFormPatch({
+                                galleryImageUrls: (form.galleryImageUrls ?? []).filter((_, i) => i !== idx),
+                                galleryMediaIds: (form.galleryMediaIds ?? []).filter((_, i) => i !== idx),
+                              });
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-400/20 text-rose-300"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <MediaUploadField
+                label="Upload a new screenshot to gallery"
+                helperText="After upload completes, it appends automatically to the project screenshot list."
+                folder="images"
+                category="project-screenshot"
+                contextSlug={form.slug || form.title}
+                value={draftShotUrl}
+                mediaId={draftShotMediaId}
+                mediaFiles={mediaFiles}
+                driveConfig={driveConfig}
+                onChange={(url, _name, nextId) => {
+                  if (url) {
+                    const currentUrls = form.galleryImageUrls ?? [];
+                    const currentIds = form.galleryMediaIds ?? [];
+                    updateFormPatch({
+                      galleryImageUrls: [...currentUrls, url],
+                      galleryMediaIds: nextId ? [...currentIds, nextId] : currentIds,
+                    });
+                    setDraftShotUrl('');
+                    setDraftShotMediaId('');
+                  }
+                }}
+                onStatusChange={(s) => setUploadActive(s === 'uploading')}
+              />
+
+              <MediaLibraryPickerModal
+                open={galleryPickerOpen}
+                onClose={() => setGalleryPickerOpen(false)}
+                mediaFiles={mediaFiles}
+                expectedKind="image"
+                requirePublicForDisplay
+                onSelect={(rec) => {
+                  const currentUrls = form.galleryImageUrls ?? [];
+                  const currentIds = form.galleryMediaIds ?? [];
+                  if (rec.publicUrl && !currentUrls.includes(rec.publicUrl)) {
+                    updateFormPatch({
+                      galleryImageUrls: [...currentUrls, rec.publicUrl],
+                      galleryMediaIds: [...currentIds, rec.id],
+                    });
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -671,10 +888,9 @@ export function GuidedProjectWizard({
 
             <div className="overflow-hidden rounded-2xl border border-slate-400/20 bg-[#050816]">
               {sanitizeExternalUrl(form.imageUrl) ? (
-                <img
+                <SmartDriveImage
                   src={sanitizeExternalUrl(form.imageUrl)}
                   alt={form.title || 'Project preview'}
-                  referrerPolicy="no-referrer"
                   className="aspect-[16/9] w-full object-cover"
                 />
               ) : (
@@ -693,6 +909,18 @@ export function GuidedProjectWizard({
                   {form.title || 'Untitled Project'}
                 </h3>
                 <p className="mt-2 text-sm text-[#94A3B8]">{form.summary}</p>
+                {(form.galleryImageUrls ?? []).length > 0 && (
+                  <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                    {(form.galleryImageUrls ?? []).map((url, idx) => (
+                      <SmartDriveImage
+                        key={`${url}-${idx}`}
+                        src={url}
+                        alt={`Gallery preview ${idx + 1}`}
+                        className="h-14 w-24 shrink-0 rounded-lg border border-slate-400/20 object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

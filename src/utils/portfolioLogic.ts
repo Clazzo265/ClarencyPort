@@ -2,6 +2,7 @@ import type {
   ContactMessage,
   DevStatus,
   ExperienceEntry,
+  MediaFileRecord,
   Project,
   PublicProfile,
   ResearchEntry,
@@ -141,6 +142,7 @@ export function buildSearchIndex(params: {
   research: ResearchEntry[];
   experiences: ExperienceEntry[];
   messages: ContactMessage[];
+  mediaFiles?: MediaFileRecord[];
 }): SearchableItem[] {
   const q = params.query.trim().toLowerCase();
   const results: SearchableItem[] = [];
@@ -205,6 +207,18 @@ export function buildSearchIndex(params: {
         statusLabel: msg.status,
         targetSection: 'messages',
       });
+    }
+    if (params.mediaFiles) {
+      for (const file of params.mediaFiles) {
+        results.push({
+          id: file.id,
+          kind: 'media',
+          title: file.name,
+          subtitle: `${file.category} · ${file.originalName}`,
+          statusLabel: file.visibility,
+          targetSection: 'media',
+        });
+      }
     }
   }
 

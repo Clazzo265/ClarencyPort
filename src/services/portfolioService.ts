@@ -27,7 +27,12 @@ import {
 import type {
   AuditLog,
   ContactMessage,
+  DriveWorkspaceConfig,
   ExperienceEntry,
+  MediaCategory,
+  MediaDeliveryStatus,
+  MediaFileRecord,
+  MediaVisibility,
   MessageStatus,
   PrivateSettings,
   Project,
@@ -165,6 +170,13 @@ export function subscribePublicPortfolio(callbacks: {
             featured: Boolean(data.featured),
             sortOrder: Number(data.sortOrder ?? 0),
             imageUrl: data.imageUrl ? String(data.imageUrl) : '',
+            coverMediaId: data.coverMediaId ? String(data.coverMediaId) : '',
+            galleryMediaIds: Array.isArray(data.galleryMediaIds)
+              ? data.galleryMediaIds.map(String)
+              : [],
+            galleryImageUrls: Array.isArray(data.galleryImageUrls)
+              ? data.galleryImageUrls.map(String)
+              : [],
             githubUrl: data.githubUrl ? String(data.githubUrl) : '',
             liveUrl: data.liveUrl ? String(data.liveUrl) : '',
             ownerId: String(data.ownerId ?? ''),
@@ -236,6 +248,7 @@ export function subscribePublicPortfolio(callbacks: {
             findings: data.findings ? String(data.findings) : '',
             references: data.references ? String(data.references) : '',
             documentUrl: data.documentUrl ? String(data.documentUrl) : '',
+            documentMediaId: data.documentMediaId ? String(data.documentMediaId) : '',
             publishState: data.publishState,
             updatedAt: toIsoString(data.updatedAt),
           };
@@ -270,6 +283,7 @@ export function subscribePublicPortfolio(callbacks: {
               location: data.location ? String(data.location) : '',
               description: data.description ? String(data.description) : '',
               verificationUrl: data.verificationUrl ? String(data.verificationUrl) : '',
+              certificateMediaId: data.certificateMediaId ? String(data.certificateMediaId) : '',
               publishState: data.publishState,
               sortOrder: Number(data.sortOrder ?? 0),
               updatedAt: toIsoString(data.updatedAt),
@@ -295,6 +309,8 @@ export function subscribeAdminWorkspace(callbacks: {
   onAllExperiences: (experiences: ExperienceEntry[]) => void;
   onMessages: (messages: ContactMessage[]) => void;
   onAuditLogs: (logs: AuditLog[]) => void;
+  onMediaFiles?: (files: MediaFileRecord[]) => void;
+  onDriveConfig?: (config: DriveWorkspaceConfig | null) => void;
 }): () => void {
   const unsubs: Unsubscribe[] = [];
 
@@ -316,6 +332,72 @@ export function subscribeAdminWorkspace(callbacks: {
       (error) => handleFirestoreError(error, OperationType.GET, 'siteContent/privateSettings'),
     ),
   );
+
+  if (callbacks.onDriveConfig) {
+    const onDriveConfig = callbacks.onDriveConfig;
+    unsubs.push(
+      onSnapshot(
+        doc(db, 'siteContent', 'driveConfig'),
+        (snap) => {
+          if (!snap.exists()) {
+            onDriveConfig(null);
+            return;
+          }
+          const data = snap.data();
+          onDriveConfig({
+            provider: 'google-drive',
+            rootFolderName: String(data.rootFolderName ?? 'KLARENCY MEDIA'),
+            folderIds: data.folderIds,
+            connectedEmail: data.connectedEmail ? String(data.connectedEmail) : undefined,
+            updatedAt: toIsoString(data.updatedAt),
+          });
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'siteContent/driveConfig'),
+      ),
+    );
+  }
+
+  if (callbacks.onMediaFiles) {
+    const onMediaFiles = callbacks.onMediaFiles;
+    unsubs.push(
+      onSnapshot(
+        query(collection(db, 'mediaFiles'), orderBy('createdAt', 'desc')),
+        (snap) => {
+          const items: MediaFileRecord[] = snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              name: String(data.name ?? ''),
+              originalName: String(data.originalName ?? ''),
+              mimeType: (data.mimeType as MediaFileRecord['mimeType']) ?? 'image/jpeg',
+              size: Number(data.size ?? 0),
+              sha256: data.sha256 ? String(data.sha256) : undefined,
+              width: typeof data.width === 'number' ? data.width : undefined,
+              height: typeof data.height === 'number' ? data.height : undefined,
+              driveFileId: String(data.driveFileId ?? ''),
+              driveFolderId: String(data.driveFolderId ?? ''),
+              drivePermissionId: data.drivePermissionId ? String(data.drivePermissionId) : undefined,
+              category: (data.category as MediaCategory) ?? 'other',
+              description: data.description ? String(data.description) : undefined,
+              visibility: (data.visibility as MediaVisibility) ?? 'PRIVATE',
+              uploadStatus: 'completed',
+              storageProvider: 'google-drive',
+              publicUrl: data.publicUrl ? String(data.publicUrl) : undefined,
+              fallbackPublicUrl: data.fallbackPublicUrl ? String(data.fallbackPublicUrl) : undefined,
+              deliveryStatus: (data.deliveryStatus as MediaDeliveryStatus) ?? 'private',
+              deliveryError: data.deliveryError ? String(data.deliveryError) : undefined,
+              uploadedBy: String(data.uploadedBy ?? ''),
+              createdAt: toIsoString(data.createdAt),
+              updatedAt: toIsoString(data.updatedAt),
+              schemaVersion: Number(data.schemaVersion ?? 1),
+            };
+          });
+          onMediaFiles(items);
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, 'mediaFiles'),
+      ),
+    );
+  }
 
   unsubs.push(
     onSnapshot(
@@ -341,6 +423,13 @@ export function subscribeAdminWorkspace(callbacks: {
               featured: Boolean(data.featured),
               sortOrder: Number(data.sortOrder ?? 0),
               imageUrl: data.imageUrl ? String(data.imageUrl) : '',
+              coverMediaId: data.coverMediaId ? String(data.coverMediaId) : '',
+              galleryMediaIds: Array.isArray(data.galleryMediaIds)
+                ? data.galleryMediaIds.map(String)
+                : [],
+              galleryImageUrls: Array.isArray(data.galleryImageUrls)
+                ? data.galleryImageUrls.map(String)
+                : [],
               githubUrl: data.githubUrl ? String(data.githubUrl) : '',
               liveUrl: data.liveUrl ? String(data.liveUrl) : '',
               ownerId: String(data.ownerId ?? ''),
@@ -397,6 +486,7 @@ export function subscribeAdminWorkspace(callbacks: {
             findings: data.findings ? String(data.findings) : '',
             references: data.references ? String(data.references) : '',
             documentUrl: data.documentUrl ? String(data.documentUrl) : '',
+            documentMediaId: data.documentMediaId ? String(data.documentMediaId) : '',
             publishState: data.publishState,
             updatedAt: toIsoString(data.updatedAt),
           };
@@ -423,6 +513,7 @@ export function subscribeAdminWorkspace(callbacks: {
               location: data.location ? String(data.location) : '',
               description: data.description ? String(data.description) : '',
               verificationUrl: data.verificationUrl ? String(data.verificationUrl) : '',
+              certificateMediaId: data.certificateMediaId ? String(data.certificateMediaId) : '',
               publishState: data.publishState,
               sortOrder: Number(data.sortOrder ?? 0),
               updatedAt: toIsoString(data.updatedAt),
@@ -619,6 +710,9 @@ export async function saveProject(
         featured: projectInput.featured,
         sortOrder: projectInput.sortOrder,
         imageUrl: projectInput.imageUrl ?? '',
+        coverMediaId: projectInput.coverMediaId ?? '',
+        galleryMediaIds: projectInput.galleryMediaIds ?? [],
+        galleryImageUrls: projectInput.galleryImageUrls ?? [],
         githubUrl: projectInput.githubUrl ?? '',
         liveUrl: projectInput.liveUrl ?? '',
         updatedAt: serverTimestamp(),
@@ -640,6 +734,9 @@ export async function saveProject(
         featured: projectInput.featured,
         sortOrder: projectInput.sortOrder,
         imageUrl: projectInput.imageUrl ?? '',
+        coverMediaId: projectInput.coverMediaId ?? '',
+        galleryMediaIds: projectInput.galleryMediaIds ?? [],
+        galleryImageUrls: projectInput.galleryImageUrls ?? [],
         githubUrl: projectInput.githubUrl ?? '',
         liveUrl: projectInput.liveUrl ?? '',
         ownerId: user.uid,

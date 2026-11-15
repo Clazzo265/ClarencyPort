@@ -1,15 +1,18 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
-export const storage = getStorage(app);
+const typedConfig = firebaseConfig as typeof firebaseConfig & { firestoreDatabaseId?: string };
+
+export const firebaseApp = initializeApp(firebaseConfig);
+export const db = typedConfig.firestoreDatabaseId
+  ? getFirestore(firebaseApp, typedConfig.firestoreDatabaseId)
+  : getFirestore(firebaseApp);
+export const auth = getAuth(firebaseApp);
 
 export const OWNER_EMAIL = 'cchilongo88@gmail.com';
+export const GOOGLE_OAUTH_CLIENT_ID = firebaseConfig.oAuthClientId || '';
 
 export enum OperationType {
   CREATE = 'create',

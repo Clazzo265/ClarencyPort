@@ -10,8 +10,10 @@ import {
   saveSkill,
 } from '../../services/portfolioService';
 import type {
+  DriveWorkspaceConfig,
   ExperienceEntry,
   ExperienceType,
+  MediaFileRecord,
   ResearchEntry,
   ResearchStage,
   SimplePublishState,
@@ -20,6 +22,7 @@ import type {
   SkillProficiency,
 } from '../../types/portfolio';
 import { experienceSchema, researchSchema, skillSchema } from '../../utils/validation';
+import { MediaUploadField } from './MediaUploadField';
 
 const SKILL_CATEGORIES: SkillCategory[] = [
   'Programming Languages',
@@ -254,7 +257,15 @@ export function SkillsManager({ skills }: { skills: Skill[] }) {
   );
 }
 
-export function ResearchManager({ research }: { research: ResearchEntry[] }) {
+export function ResearchManager({
+  research,
+  mediaFiles = [],
+  driveConfig = null,
+}: {
+  research: ResearchEntry[];
+  mediaFiles?: MediaFileRecord[];
+  driveConfig?: DriveWorkspaceConfig | null;
+}) {
   const { setSaving, setSaved, setSyncError } = useSyncStatus();
   const [editing, setEditing] = useState<ResearchEntry | null>(null);
   const [title, setTitle] = useState('');
@@ -266,6 +277,7 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
   const [findings, setFindings] = useState('');
   const [references, setReferences] = useState('');
   const [documentUrl, setDocumentUrl] = useState('');
+  const [documentMediaId, setDocumentMediaId] = useState('');
   const [publishState, setPublishState] = useState<SimplePublishState>('published');
   const [error, setError] = useState<string | null>(null);
 
@@ -280,6 +292,7 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
     setFindings(item.findings ?? '');
     setReferences(item.references ?? '');
     setDocumentUrl(item.documentUrl ?? '');
+    setDocumentMediaId(item.documentMediaId ?? '');
     setPublishState(item.publishState);
     setError(null);
   };
@@ -295,6 +308,7 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
     setFindings('');
     setReferences('');
     setDocumentUrl('');
+    setDocumentMediaId('');
     setPublishState('published');
     setError(null);
   };
@@ -312,6 +326,7 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
       findings,
       references,
       documentUrl,
+      documentMediaId,
       publishState,
     });
     if (!parsed.success) {
@@ -438,7 +453,7 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
             />
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="res-ref" className="block text-xs font-medium text-[#F8FAFC]">
               References (optional)
@@ -448,18 +463,6 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
               type="text"
               value={references}
               onChange={(e) => setReferences(e.target.value)}
-              className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC]"
-            />
-          </div>
-          <div>
-            <label htmlFor="res-url" className="block text-xs font-medium text-[#F8FAFC]">
-              Document URL (optional)
-            </label>
-            <input
-              id="res-url"
-              type="url"
-              value={documentUrl}
-              onChange={(e) => setDocumentUrl(e.target.value)}
               className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC]"
             />
           </div>
@@ -479,6 +482,21 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
             </select>
           </div>
         </div>
+        <MediaUploadField
+          label="Research PDF or Working Paper (optional)"
+          helperText="Upload a PDF report to Google Drive Research/ or pick from Media Library."
+          folder="research"
+          category="research"
+          contextSlug={title}
+          value={documentUrl}
+          mediaId={documentMediaId}
+          mediaFiles={mediaFiles}
+          driveConfig={driveConfig}
+          onChange={(url, _name, nextMediaId) => {
+            setDocumentUrl(url);
+            setDocumentMediaId(nextMediaId ?? '');
+          }}
+        />
         {error && <p className="text-xs text-rose-300">{error}</p>}
         <div className="flex flex-wrap gap-2">
           <button
@@ -540,7 +558,15 @@ export function ResearchManager({ research }: { research: ResearchEntry[] }) {
   );
 }
 
-export function ExperienceManager({ experiences }: { experiences: ExperienceEntry[] }) {
+export function ExperienceManager({
+  experiences,
+  mediaFiles = [],
+  driveConfig = null,
+}: {
+  experiences: ExperienceEntry[];
+  mediaFiles?: MediaFileRecord[];
+  driveConfig?: DriveWorkspaceConfig | null;
+}) {
   const { setSaving, setSaved, setSyncError } = useSyncStatus();
   const [editing, setEditing] = useState<ExperienceEntry | null>(null);
   const [title, setTitle] = useState('');
@@ -550,6 +576,7 @@ export function ExperienceManager({ experiences }: { experiences: ExperienceEntr
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [verificationUrl, setVerificationUrl] = useState('');
+  const [certificateMediaId, setCertificateMediaId] = useState('');
   const [publishState, setPublishState] = useState<SimplePublishState>('published');
   const [error, setError] = useState<string | null>(null);
 
@@ -562,6 +589,7 @@ export function ExperienceManager({ experiences }: { experiences: ExperienceEntr
     setLocation(item.location ?? '');
     setDescription(item.description ?? '');
     setVerificationUrl(item.verificationUrl ?? '');
+    setCertificateMediaId(item.certificateMediaId ?? '');
     setPublishState(item.publishState);
     setError(null);
   };
@@ -575,6 +603,7 @@ export function ExperienceManager({ experiences }: { experiences: ExperienceEntr
     setLocation('');
     setDescription('');
     setVerificationUrl('');
+    setCertificateMediaId('');
     setPublishState('published');
     setError(null);
   };
@@ -590,6 +619,7 @@ export function ExperienceManager({ experiences }: { experiences: ExperienceEntr
       location,
       description,
       verificationUrl,
+      certificateMediaId,
       publishState,
       sortOrder: editing?.sortOrder ?? experiences.length + 1,
     });
@@ -720,16 +750,32 @@ export function ExperienceManager({ experiences }: { experiences: ExperienceEntr
         </div>
         <div>
           <label htmlFor="exp-verify" className="block text-xs font-medium text-[#F8FAFC]">
-            Verification URL (optional, for verified certifications)
+            External Verification URL (optional, for online badges/certificates)
           </label>
           <input
             id="exp-verify"
             type="url"
             value={verificationUrl}
             onChange={(e) => setVerificationUrl(e.target.value)}
+            placeholder="https://..."
             className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC]"
           />
         </div>
+        <MediaUploadField
+          label="Or upload Certificate / Supporting PDF to Google Drive (optional)"
+          helperText="Stores file inside KLARENCY MEDIA/Certificates without external link copy-paste."
+          folder="research"
+          category={entryType === 'Certification' ? 'certificate' : 'experience'}
+          contextSlug={title}
+          value={verificationUrl}
+          mediaId={certificateMediaId}
+          mediaFiles={mediaFiles}
+          driveConfig={driveConfig}
+          onChange={(url, _name, nextMediaId) => {
+            setVerificationUrl(url);
+            setCertificateMediaId(nextMediaId ?? '');
+          }}
+        />
         {error && <p className="text-xs text-rose-300">{error}</p>}
         <div className="flex flex-wrap gap-2">
           <button

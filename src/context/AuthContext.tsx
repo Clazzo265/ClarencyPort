@@ -8,6 +8,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { auth, db, OWNER_EMAIL } from '../services/firebase';
+import { clearDriveAuthSession } from '../services/googleDriveAuth';
 
 interface AuthContextValue {
   user: User | null;
@@ -34,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser);
       if (!nextUser || !nextUser.emailVerified) {
         setIsAdmin(false);
+        clearDriveAuthSession('disconnected', null);
         setAuthReady(true);
         return;
       }
@@ -101,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    clearDriveAuthSession('disconnected', null);
     await firebaseSignOut(auth);
     setIsAdmin(false);
   }, []);

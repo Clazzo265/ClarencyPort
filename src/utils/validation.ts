@@ -9,21 +9,27 @@ export function sanitizeExternalUrl(raw?: string): string {
   if (!raw) return '';
   const trimmed = raw.trim();
   if (!trimmed) return '';
-  if (trimmed.startsWith('/src/assets/') || trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+  if (
+    trimmed.startsWith('/src/assets/') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('http://')
+  ) {
     return trimmed;
   }
   return '';
 }
 
 export function generateSlug(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 140) || 'untitled-project';
+  return (
+    input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 140) || 'untitled-project'
+  );
 }
 
 export const optionalUrlSchema = z
@@ -37,8 +43,9 @@ export const optionalMediaUrlSchema = z
   .string()
   .max(1200, 'Media URL must be 1200 characters or fewer.')
   .refine(
-    (val) => val === '' || /^https?:\/\/.+/.test(val.trim()) || val.trim().startsWith('/src/assets/'),
-    { message: 'Enter a valid image URL or upload a file from your device.' },
+    (val) =>
+      val === '' || /^https?:\/\/.+/.test(val.trim()) || val.trim().startsWith('/src/assets/'),
+    { message: 'Upload a file from your device or choose an item from Media Library.' },
   );
 
 export const contactFormSchema = z.object({
@@ -76,6 +83,7 @@ export const publicProfileSchema = z.object({
   expandedBio: z.string().max(4000).optional().default(''),
   availabilityNote: z.string().max(240).optional().default(''),
   portraitUrl: optionalMediaUrlSchema.optional().default(''),
+  portraitMediaId: z.string().max(128).optional().default(''),
   githubUrl: optionalUrlSchema.optional().default(''),
   linkedinUrl: optionalUrlSchema.optional().default(''),
   xUrl: optionalUrlSchema.optional().default(''),
@@ -86,6 +94,7 @@ export const publicProfileSchema = z.object({
     .optional()
     .default(''),
   cvUrl: optionalMediaUrlSchema.optional().default(''),
+  cvMediaId: z.string().max(128).optional().default(''),
   cvFileName: z.string().max(200).optional().default(''),
   cvEnabled: z.boolean(),
 });
@@ -120,6 +129,9 @@ export const projectSchema = z.object({
   featured: z.boolean(),
   sortOrder: z.number().min(0).max(10000),
   imageUrl: optionalMediaUrlSchema.optional().default(''),
+  coverMediaId: z.string().max(128).optional().default(''),
+  galleryMediaIds: z.array(z.string().max(128)).max(20).optional().default([]),
+  galleryImageUrls: z.array(optionalMediaUrlSchema).max(20).optional().default([]),
   githubUrl: optionalUrlSchema.optional().default(''),
   liveUrl: optionalUrlSchema.optional().default(''),
 });
@@ -157,6 +169,7 @@ export const researchSchema = z.object({
   findings: z.string().max(1500).optional().default(''),
   references: z.string().max(1200).optional().default(''),
   documentUrl: optionalMediaUrlSchema.optional().default(''),
+  documentMediaId: z.string().max(128).optional().default(''),
   publishState: z.enum(['draft', 'published', 'archived']),
 });
 
@@ -174,6 +187,7 @@ export const experienceSchema = z.object({
   location: z.string().max(120).optional().default(''),
   description: z.string().max(1500).optional().default(''),
   verificationUrl: optionalUrlSchema.optional().default(''),
+  certificateMediaId: z.string().max(128).optional().default(''),
   publishState: z.enum(['draft', 'published', 'archived']),
   sortOrder: z.number().min(0).max(10000),
 });

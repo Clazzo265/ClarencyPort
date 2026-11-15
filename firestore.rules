@@ -42,10 +42,14 @@ service cloud.firestore {
       return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
     }
 
-    function isValidStringList(listVal, maxItems) {
+    function isOptionalNumber(data, field, minVal, maxVal) {
+      return !(field in data) || (data[field] is number && data[field] >= minVal && data[field] <= maxVal);
+    }
+
+    function isValidStringList(listVal, maxItems, maxItemLen) {
       return listVal is list &&
         listVal.size() <= maxItems &&
-        (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= 160));
+        (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= maxItemLen));
     }
 
     // --- Validation Blueprints ---
@@ -53,8 +57,8 @@ service cloud.firestore {
       return data.keys().hasAll(['ownerName', 'headline', 'tagline', 'location', 'shortBio', 'cvEnabled', 'updatedAt']) &&
         data.keys().hasOnly([
           'ownerName', 'headline', 'tagline', 'location', 'shortBio', 'expandedBio',
-          'availabilityNote', 'portraitUrl', 'githubUrl', 'linkedinUrl', 'xUrl',
-          'publicEmail', 'cvUrl', 'cvFileName', 'cvEnabled', 'updatedAt'
+          'availabilityNote', 'portraitUrl', 'portraitMediaId', 'githubUrl', 'linkedinUrl',
+          'xUrl', 'publicEmail', 'cvUrl', 'cvMediaId', 'cvFileName', 'cvEnabled', 'updatedAt'
         ]) &&
         data.ownerName is string && data.ownerName.size() >= 2 && data.ownerName.size() <= 120 &&
         data.headline is string && data.headline.size() >= 2 && data.headline.size() <= 160 &&
@@ -64,11 +68,13 @@ service cloud.firestore {
         isOptionalString(data, 'expandedBio', 4000) &&
         isOptionalString(data, 'availabilityNote', 240) &&
         isOptionalString(data, 'portraitUrl', 1000) &&
+        isOptionalString(data, 'portraitMediaId', 128) &&
         isOptionalString(data, 'githubUrl', 500) &&
         isOptionalString(data, 'linkedinUrl', 500) &&
         isOptionalString(data, 'xUrl', 500) &&
         isOptionalString(data, 'publicEmail', 160) &&
         isOptionalString(data, 'cvUrl', 1000) &&
+        isOptionalString(data, 'cvMediaId', 128) &&
         isOptionalString(data, 'cvFileName', 200) &&
         data.cvEnabled is bool &&
         data.updatedAt == request.time;
@@ -82,10 +88,83 @@ service cloud.firestore {
         ]) &&
         data.onboardingCompleted is bool &&
         data.maintenanceMode is bool &&
-        (!('contactRateLimitMinutes' in data) || (data.contactRateLimitMinutes is number && data.contactRateLimitMinutes >= 0 && data.contactRateLimitMinutes <= 1440)) &&
+        isOptionalNumber(data, 'contactRateLimitMinutes', 0, 1440) &&
         isOptionalString(data, 'securityContactNote', 1000) &&
         isOptionalString(data, 'siteAnnouncement', 400) &&
         data.updatedAt == request.time;
+    }
+
+    function isValidDriveFolderMap(folders) {
+      return folders is map &&
+        folders.keys().hasAll([
+          'rootId', 'profileId', 'projectsId', 'projectCoversId', 'projectScreenshotsId',
+          'projectDemosId', 'cvId', 'researchId', 'experienceId', 'certificatesId', 'otherId'
+        ]) &&
+        folders.keys().hasOnly([
+          'rootId', 'profileId', 'projectsId', 'projectCoversId', 'projectScreenshotsId',
+          'projectDemosId', 'cvId', 'researchId', 'experienceId', 'certificatesId', 'otherId'
+        ]) &&
+        folders.rootId is string && folders.rootId.size() <= 200 &&
+        folders.profileId is string && folders.profileId.size() <= 200 &&
+        folders.projectsId is string && folders.projectsId.size() <= 200 &&
+        folders.projectCoversId is string && folders.projectCoversId.size() <= 200 &&
+        folders.projectScreenshotsId is string && folders.projectScreenshotsId.size() <= 200 &&
+        folders.projectDemosId is string && folders.projectDemosId.size() <= 200 &&
+        folders.cvId is string && folders.cvId.size() <= 200 &&
+        folders.researchId is string && folders.researchId.size() <= 200 &&
+        folders.experienceId is string && folders.experienceId.size() <= 200 &&
+        folders.certificatesId is string && folders.certificatesId.size() <= 200 &&
+        folders.otherId is string && folders.otherId.size() <= 200;
+    }
+
+    function isValidDriveConfig(data) {
+      return data.keys().hasAll(['provider', 'rootFolderName', 'folderIds', 'updatedAt']) &&
+        data.keys().hasOnly(['provider', 'rootFolderName', 'folderIds', 'connectedEmail', 'updatedAt']) &&
+        data.provider == 'google-drive' &&
+        data.rootFolderName is string && data.rootFolderName.size() >= 2 && data.rootFolderName.size() <= 120 &&
+        isValidDriveFolderMap(data.folderIds) &&
+        isOptionalString(data, 'connectedEmail', 160) &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidMediaFile(data) {
+      return data.keys().hasAll([
+          'name', 'originalName', 'mimeType', 'size', 'driveFileId', 'driveFolderId',
+          'category', 'visibility', 'uploadStatus', 'storageProvider', 'deliveryStatus',
+          'uploadedBy', 'createdAt', 'updatedAt', 'schemaVersion'
+        ]) &&
+        data.keys().hasOnly([
+          'name', 'originalName', 'mimeType', 'size', 'sha256', 'width', 'height',
+          'driveFileId', 'driveFolderId', 'drivePermissionId', 'category', 'description',
+          'visibility', 'uploadStatus', 'storageProvider', 'publicUrl', 'fallbackPublicUrl',
+          'deliveryStatus', 'deliveryError', 'uploadedBy', 'createdAt', 'updatedAt', 'schemaVersion'
+        ]) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
+        data.originalName is string && data.originalName.size() >= 1 && data.originalName.size() <= 240 &&
+        data.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] &&
+        data.size is number && data.size >= 1 && data.size <= 25000000 &&
+        isOptionalString(data, 'sha256', 128) &&
+        isOptionalNumber(data, 'width', 1, 20000) &&
+        isOptionalNumber(data, 'height', 1, 20000) &&
+        data.driveFileId is string && data.driveFileId.size() >= 1 && data.driveFileId.size() <= 200 &&
+        data.driveFolderId is string && data.driveFolderId.size() >= 1 && data.driveFolderId.size() <= 200 &&
+        isOptionalString(data, 'drivePermissionId', 160) &&
+        data.category in [
+          'profile', 'project-cover', 'project-screenshot', 'project-demo',
+          'cv', 'research', 'experience', 'certificate', 'other'
+        ] &&
+        isOptionalString(data, 'description', 500) &&
+        data.visibility in ['PRIVATE', 'UNPUBLISHED', 'PUBLIC'] &&
+        data.uploadStatus == 'completed' &&
+        data.storageProvider == 'google-drive' &&
+        isOptionalString(data, 'publicUrl', 1200) &&
+        isOptionalString(data, 'fallbackPublicUrl', 1200) &&
+        data.deliveryStatus in ['private', 'unverified', 'verified', 'failed'] &&
+        isOptionalString(data, 'deliveryError', 400) &&
+        data.uploadedBy is string && data.uploadedBy.size() >= 1 && data.uploadedBy.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt == request.time &&
+        data.schemaVersion is number && data.schemaVersion >= 1 && data.schemaVersion <= 10;
     }
 
     function isValidProject(data) {
@@ -97,7 +176,8 @@ service cloud.firestore {
           'title', 'slug', 'summary', 'problem', 'intendedUsers', 'solution',
           'features', 'technologies', 'challenges', 'lessonsLearned',
           'devStatus', 'publishState', 'featured', 'sortOrder',
-          'imageUrl', 'githubUrl', 'liveUrl', 'ownerId', 'createdAt', 'updatedAt'
+          'imageUrl', 'coverMediaId', 'galleryMediaIds', 'galleryImageUrls',
+          'githubUrl', 'liveUrl', 'ownerId', 'createdAt', 'updatedAt'
         ]) &&
         data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
         data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 140 && data.slug.matches('^[a-z0-9\\-]+$') &&
@@ -105,8 +185,8 @@ service cloud.firestore {
         isOptionalString(data, 'problem', 3000) &&
         isOptionalString(data, 'intendedUsers', 600) &&
         isOptionalString(data, 'solution', 3000) &&
-        (!('features' in data) || isValidStringList(data.features, 20)) &&
-        isValidStringList(data.technologies, 24) &&
+        (!('features' in data) || isValidStringList(data.features, 20, 160)) &&
+        isValidStringList(data.technologies, 24, 160) &&
         isOptionalString(data, 'challenges', 2500) &&
         isOptionalString(data, 'lessonsLearned', 2500) &&
         data.devStatus in ['Completed', 'In progress', 'Prototype', 'Experimental', 'Archived'] &&
@@ -114,6 +194,9 @@ service cloud.firestore {
         data.featured is bool &&
         data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000 &&
         isOptionalString(data, 'imageUrl', 1200) &&
+        isOptionalString(data, 'coverMediaId', 128) &&
+        (!('galleryMediaIds' in data) || isValidStringList(data.galleryMediaIds, 20, 128)) &&
+        (!('galleryImageUrls' in data) || isValidStringList(data.galleryImageUrls, 20, 1200)) &&
         isOptionalString(data, 'githubUrl', 500) &&
         isOptionalString(data, 'liveUrl', 500) &&
         data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
@@ -153,7 +236,8 @@ service cloud.firestore {
       return data.keys().hasAll(['title', 'stage', 'summary', 'publishState', 'updatedAt']) &&
         data.keys().hasOnly([
           'title', 'stage', 'researchQuestion', 'objectives', 'summary',
-          'methods', 'findings', 'references', 'documentUrl', 'publishState', 'updatedAt'
+          'methods', 'findings', 'references', 'documentUrl', 'documentMediaId',
+          'publishState', 'updatedAt'
         ]) &&
         data.title is string && data.title.size() >= 3 && data.title.size() <= 180 &&
         data.stage in ['Research Interest', 'Ongoing Investigation', 'Completed Academic Work', 'Published Research'] &&
@@ -164,6 +248,7 @@ service cloud.firestore {
         isOptionalString(data, 'findings', 1500) &&
         isOptionalString(data, 'references', 1200) &&
         isOptionalString(data, 'documentUrl', 800) &&
+        isOptionalString(data, 'documentMediaId', 128) &&
         data.publishState in ['draft', 'published', 'archived'] &&
         data.updatedAt == request.time;
     }
@@ -172,7 +257,7 @@ service cloud.firestore {
       return data.keys().hasAll(['title', 'organization', 'entryType', 'dateRange', 'publishState', 'sortOrder', 'updatedAt']) &&
         data.keys().hasOnly([
           'title', 'organization', 'entryType', 'dateRange', 'location',
-          'description', 'verificationUrl', 'publishState', 'sortOrder', 'updatedAt'
+          'description', 'verificationUrl', 'certificateMediaId', 'publishState', 'sortOrder', 'updatedAt'
         ]) &&
         data.title is string && data.title.size() >= 2 && data.title.size() <= 160 &&
         data.organization is string && data.organization.size() >= 2 && data.organization.size() <= 160 &&
@@ -181,6 +266,7 @@ service cloud.firestore {
         isOptionalString(data, 'location', 120) &&
         isOptionalString(data, 'description', 1500) &&
         isOptionalString(data, 'verificationUrl', 500) &&
+        isOptionalString(data, 'certificateMediaId', 128) &&
         data.publishState in ['draft', 'published', 'archived'] &&
         data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000 &&
         data.updatedAt == request.time;
@@ -241,6 +327,32 @@ service cloud.firestore {
       allow get: if isAdmin();
       allow create, update: if isAdmin() && isValidPrivateSettings(incoming());
       allow delete: if false;
+    }
+
+    match /siteContent/driveConfig {
+      allow get: if isAdmin();
+      allow create, update: if isAdmin() && isValidDriveConfig(incoming());
+      allow delete: if false;
+    }
+
+    match /mediaFiles/{mediaId} {
+      allow get: if isValidId(mediaId) && (existing().visibility == 'PUBLIC' || isAdmin());
+      allow list: if existing().visibility == 'PUBLIC' || isAdmin();
+      allow create: if isAdmin() && isValidId(mediaId) && isValidMediaFile(incoming()) &&
+        incoming().uploadedBy == request.auth.uid && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(mediaId) && isValidMediaFile(incoming()) &&
+        incoming().uploadedBy == existing().uploadedBy && incoming().createdAt == existing().createdAt && (
+          // Action: VisibilityChange (PRIVATE <-> UNPUBLISHED <-> PUBLIC)
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'visibility', 'drivePermissionId', 'publicUrl', 'fallbackPublicUrl',
+            'deliveryStatus', 'deliveryError', 'updatedAt'
+          ]) ||
+          // Action: MetadataEdit (rename, category, description)
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'description', 'driveFolderId', 'updatedAt']) ||
+          // Action: FileReplacement or Admin override
+          isAdmin()
+        );
+      allow delete: if isAdmin() && isValidId(mediaId);
     }
 
     match /projects/{projectId} {

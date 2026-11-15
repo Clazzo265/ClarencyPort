@@ -4,6 +4,7 @@ import {
   ExternalLink,
   FileText,
   FolderPlus,
+  Image,
   Layers,
   Mail,
   UserCog,
@@ -26,6 +27,7 @@ export type AdminSection =
   | 'overview'
   | 'wizard'
   | 'projects'
+  | 'media'
   | 'profile'
   | 'skills'
   | 'research'
@@ -69,6 +71,12 @@ export function DashboardHome({
       desc: 'Launch the 9-step guided project creator.',
       icon: FolderPlus,
       action: () => onNavigate('wizard'),
+    },
+    {
+      label: 'Media Library',
+      desc: 'Upload photos & PDFs to Google Drive, crop, and manage visibility.',
+      icon: Image,
+      action: () => onNavigate('media'),
     },
     {
       label: 'Edit my profile',

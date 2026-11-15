@@ -37,6 +37,83 @@ export type ExperienceType =
 
 export type MessageStatus = 'unread' | 'read' | 'archived';
 
+export type MediaVisibility = 'PRIVATE' | 'UNPUBLISHED' | 'PUBLIC';
+
+export type MediaCategory =
+  | 'profile'
+  | 'project-cover'
+  | 'project-screenshot'
+  | 'project-demo'
+  | 'cv'
+  | 'research'
+  | 'experience'
+  | 'certificate'
+  | 'other';
+
+export type MediaUploadState =
+  | 'preparing'
+  | 'waiting-auth'
+  | 'uploading'
+  | 'paused'
+  | 'resuming'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type MediaDeliveryStatus = 'private' | 'unverified' | 'verified' | 'failed';
+
+export type MediaStorageProviderId = 'google-drive';
+
+export interface MediaFileRecord {
+  id: string;
+  name: string;
+  originalName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
+  size: number;
+  sha256?: string;
+  width?: number;
+  height?: number;
+  driveFileId: string;
+  driveFolderId: string;
+  drivePermissionId?: string;
+  category: MediaCategory;
+  description?: string;
+  visibility: MediaVisibility;
+  uploadStatus: 'completed';
+  storageProvider: MediaStorageProviderId;
+  publicUrl?: string;
+  fallbackPublicUrl?: string;
+  deliveryStatus: MediaDeliveryStatus;
+  deliveryError?: string;
+  uploadedBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+  schemaVersion: number;
+}
+
+export interface DriveFolderMap {
+  rootId: string;
+  profileId: string;
+  projectsId: string;
+  projectCoversId: string;
+  projectScreenshotsId: string;
+  projectDemosId: string;
+  cvId: string;
+  researchId: string;
+  experienceId: string;
+  certificatesId: string;
+  otherId: string;
+}
+
+export interface DriveWorkspaceConfig {
+  provider: MediaStorageProviderId;
+  rootFolderName: string;
+  folderIds: DriveFolderMap;
+  connectedEmail?: string;
+  updatedAt?: string;
+}
+
 export interface PublicProfile {
   ownerName: string;
   headline: string;
@@ -46,11 +123,13 @@ export interface PublicProfile {
   expandedBio?: string;
   availabilityNote?: string;
   portraitUrl?: string;
+  portraitMediaId?: string;
   githubUrl?: string;
   linkedinUrl?: string;
   xUrl?: string;
   publicEmail?: string;
   cvUrl?: string;
+  cvMediaId?: string;
   cvFileName?: string;
   cvEnabled: boolean;
   updatedAt?: string;
@@ -82,6 +161,9 @@ export interface Project {
   featured: boolean;
   sortOrder: number;
   imageUrl?: string;
+  coverMediaId?: string;
+  galleryMediaIds?: string[];
+  galleryImageUrls?: string[];
   githubUrl?: string;
   liveUrl?: string;
   ownerId: string;
@@ -123,6 +205,7 @@ export interface ResearchEntry {
   findings?: string;
   references?: string;
   documentUrl?: string;
+  documentMediaId?: string;
   publishState: SimplePublishState;
   updatedAt?: string;
 }
@@ -136,6 +219,7 @@ export interface ExperienceEntry {
   location?: string;
   description?: string;
   verificationUrl?: string;
+  certificateMediaId?: string;
   publishState: SimplePublishState;
   sortOrder: number;
   updatedAt?: string;
@@ -174,7 +258,7 @@ export type SyncStatus =
 
 export interface SearchableItem {
   id: string;
-  kind: 'project' | 'skill' | 'research' | 'experience' | 'message' | 'action';
+  kind: 'project' | 'skill' | 'research' | 'experience' | 'message' | 'media' | 'action';
   title: string;
   subtitle: string;
   statusLabel?: string;

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ContactMessage,
   ExperienceEntry,
+  MediaFileRecord,
   Project,
   ResearchEntry,
   SearchableItem,
@@ -19,6 +20,7 @@ interface CommandPaletteProps {
   research: ResearchEntry[];
   experiences: ExperienceEntry[];
   messages: ContactMessage[];
+  mediaFiles?: MediaFileRecord[];
   onSelectItem: (item: SearchableItem) => void;
 }
 
@@ -31,6 +33,7 @@ export function CommandPalette({
   research,
   experiences,
   messages,
+  mediaFiles,
   onSelectItem,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
@@ -62,8 +65,9 @@ export function CommandPalette({
         research,
         experiences,
         messages,
+        mediaFiles,
       }),
-    [isAdmin, query, projects, skills, research, experiences, messages],
+    [isAdmin, query, projects, skills, research, experiences, messages, mediaFiles],
   );
 
   if (!open) return null;

@@ -13,11 +13,13 @@
         "expandedBio": { "type": "string", "maxLength": 4000 },
         "availabilityNote": { "type": "string", "maxLength": 240 },
         "portraitUrl": { "type": "string", "maxLength": 1000 },
+        "portraitMediaId": { "type": "string", "maxLength": 128 },
         "githubUrl": { "type": "string", "maxLength": 500 },
         "linkedinUrl": { "type": "string", "maxLength": 500 },
         "xUrl": { "type": "string", "maxLength": 500 },
         "publicEmail": { "type": "string", "maxLength": 160 },
         "cvUrl": { "type": "string", "maxLength": 1000 },
+        "cvMediaId": { "type": "string", "maxLength": 128 },
         "cvFileName": { "type": "string", "maxLength": 200 },
         "cvEnabled": { "type": "boolean" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -37,6 +39,94 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["onboardingCompleted", "maintenanceMode", "updatedAt"]
+    },
+    "DriveConfig": {
+      "title": "DriveConfig",
+      "description": "Administrator-only Google Drive folder hierarchy IDs (never stores OAuth tokens or secrets).",
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string", "enum": ["google-drive"] },
+        "rootFolderName": { "type": "string", "maxLength": 120 },
+        "folderIds": { "type": "object" },
+        "connectedEmail": { "type": "string", "maxLength": 160 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["provider", "rootFolderName", "folderIds", "updatedAt"]
+    },
+    "MediaFile": {
+      "title": "MediaFile",
+      "description": "Metadata and visibility record for files uploaded to Google Drive under KLARENCY MEDIA.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "originalName": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "mimeType": {
+          "type": "string",
+          "enum": ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+        },
+        "size": { "type": "number" },
+        "sha256": { "type": "string", "maxLength": 128 },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "driveFileId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "driveFolderId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "drivePermissionId": { "type": "string", "maxLength": 160 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "profile",
+            "project-cover",
+            "project-screenshot",
+            "project-demo",
+            "cv",
+            "research",
+            "experience",
+            "certificate",
+            "other"
+          ]
+        },
+        "description": { "type": "string", "maxLength": 500 },
+        "visibility": {
+          "type": "string",
+          "enum": ["PRIVATE", "UNPUBLISHED", "PUBLIC"]
+        },
+        "uploadStatus": {
+          "type": "string",
+          "enum": ["completed"]
+        },
+        "storageProvider": {
+          "type": "string",
+          "enum": ["google-drive"]
+        },
+        "publicUrl": { "type": "string", "maxLength": 1200 },
+        "fallbackPublicUrl": { "type": "string", "maxLength": 1200 },
+        "deliveryStatus": {
+          "type": "string",
+          "enum": ["private", "unverified", "verified", "failed"]
+        },
+        "deliveryError": { "type": "string", "maxLength": 400 },
+        "uploadedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "schemaVersion": { "type": "number" }
+      },
+      "required": [
+        "name",
+        "originalName",
+        "mimeType",
+        "size",
+        "driveFileId",
+        "driveFolderId",
+        "category",
+        "visibility",
+        "uploadStatus",
+        "storageProvider",
+        "deliveryStatus",
+        "uploadedBy",
+        "createdAt",
+        "updatedAt",
+        "schemaVersion"
+      ]
     },
     "Project": {
       "title": "Project",
@@ -64,6 +154,9 @@
         "featured": { "type": "boolean" },
         "sortOrder": { "type": "number" },
         "imageUrl": { "type": "string", "maxLength": 1200 },
+        "coverMediaId": { "type": "string", "maxLength": 128 },
+        "galleryMediaIds": { "type": "array" },
+        "galleryImageUrls": { "type": "array" },
         "githubUrl": { "type": "string", "maxLength": 500 },
         "liveUrl": { "type": "string", "maxLength": 500 },
         "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
@@ -145,6 +238,7 @@
         "findings": { "type": "string", "maxLength": 1500 },
         "references": { "type": "string", "maxLength": 1200 },
         "documentUrl": { "type": "string", "maxLength": 800 },
+        "documentMediaId": { "type": "string", "maxLength": 128 },
         "publishState": { "type": "string", "enum": ["draft", "published", "archived"] },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -165,6 +259,7 @@
         "location": { "type": "string", "maxLength": 120 },
         "description": { "type": "string", "maxLength": 1500 },
         "verificationUrl": { "type": "string", "maxLength": 500 },
+        "certificateMediaId": { "type": "string", "maxLength": 128 },
         "publishState": { "type": "string", "enum": ["draft", "published", "archived"] },
         "sortOrder": { "type": "number" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -221,6 +316,14 @@
     "/siteContent/privateSettings": {
       "schema": { "$ref": "#/entities/PrivateSettings" },
       "description": "Singleton document containing administrator-only settings and onboarding progress."
+    },
+    "/siteContent/driveConfig": {
+      "schema": { "$ref": "#/entities/DriveConfig" },
+      "description": "Administrator-only Google Drive folder hierarchy mapping; never contains OAuth tokens."
+    },
+    "/mediaFiles/{mediaId}": {
+      "schema": { "$ref": "#/entities/MediaFile" },
+      "description": "Media metadata records backed by Google Drive; only PUBLIC records are readable publicly."
     },
     "/projects/{projectId}": {
       "schema": { "$ref": "#/entities/Project" },

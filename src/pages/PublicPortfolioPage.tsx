@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { RouteTransition, SignatureAtmosphere } from '../components/motion/MotionPrimitives';
 import { AboutSection } from '../components/public/AboutSection';
 import { ContactSection } from '../components/public/ContactSection';
 import { ExperienceSection } from '../components/public/ExperienceSection';
@@ -24,6 +25,7 @@ import type {
   SearchableItem,
   Skill,
 } from '../types/portfolio';
+import { filterPublicProjects } from '../utils/portfolioLogic';
 
 export function PublicPortfolioPage() {
   const initial = loadPublicCache();
@@ -34,6 +36,8 @@ export function PublicPortfolioPage() {
   const [experiences, setExperiences] = useState<ExperienceEntry[]>(initial.experiences);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const publishedProjects = useMemo(() => filterPublicProjects(projects, {}), [projects]);
 
   useEffect(() => {
     const unsub = subscribePublicPortfolio({
@@ -76,7 +80,9 @@ export function PublicPortfolioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050816] text-[#F8FAFC] kl-atmosphere">
+    <RouteTransition className="relative min-h-screen bg-[#050816] text-[#F8FAFC] kl-atmosphere">
+      <SignatureAtmosphere />
+
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[#2563EB] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
@@ -87,7 +93,7 @@ export function PublicPortfolioPage() {
       <OfflineBanner />
       <PublicHeader />
 
-      <main id="main-content">
+      <main id="main-content" className="relative z-10">
         <HeroSection profile={profile} />
         <AboutSection profile={profile} />
         <SkillsSection skills={skills} />
@@ -99,7 +105,12 @@ export function PublicPortfolioPage() {
 
       <PublicFooter profile={profile} onOpenSearch={() => setSearchOpen(true)} />
 
-      <ProjectDetailModal project={selectedProject} onClose={() => setSelectedProject(null)} />
+      <ProjectDetailModal
+        project={selectedProject}
+        projects={publishedProjects}
+        onSelectProject={setSelectedProject}
+        onClose={() => setSelectedProject(null)}
+      />
 
       <CommandPalette
         open={searchOpen}
@@ -112,6 +123,6 @@ export function PublicPortfolioPage() {
         messages={[]}
         onSelectItem={handleSelectSearch}
       />
-    </div>
+    </RouteTransition>
   );
 }

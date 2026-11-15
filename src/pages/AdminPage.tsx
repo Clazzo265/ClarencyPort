@@ -4,6 +4,7 @@ import {
   Briefcase,
   FolderKanban,
   FolderPlus,
+  Image,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -14,19 +15,22 @@ import {
   UserCog,
   X,
 } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DashboardHome, type AdminSection } from '../components/admin/DashboardHome';
 import {
   ExperienceManager,
   ResearchManager,
   SkillsManager,
 } from '../components/admin/CollectionsManagers';
+import { DashboardHome, type AdminSection } from '../components/admin/DashboardHome';
 import { GuidedProjectWizard } from '../components/admin/GuidedProjectWizard';
+import { MediaLibraryManager } from '../components/admin/MediaLibraryManager';
 import { MessagesInbox } from '../components/admin/MessagesInbox';
 import { OnboardingModal } from '../components/admin/OnboardingModal';
 import { ProfileSettingsEditor } from '../components/admin/ProfileSettingsEditor';
 import { ProjectsManager } from '../components/admin/ProjectsManager';
+import { RouteTransition, SignatureAtmosphere } from '../components/motion/MotionPrimitives';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { useAuth } from '../context/AuthContext';
 import { useSyncStatus } from '../context/SyncStatusContext';
@@ -41,7 +45,9 @@ import {
 import type {
   AuditLog,
   ContactMessage,
+  DriveWorkspaceConfig,
   ExperienceEntry,
+  MediaFileRecord,
   PrivateSettings,
   Project,
   PublicProfile,
@@ -49,12 +55,14 @@ import type {
   SearchableItem,
   Skill,
 } from '../types/portfolio';
+import { KLARENCY_DURATIONS, KLARENCY_EASE } from '../utils/motionTokens';
 import { getSyncStatusCopy } from '../utils/portfolioLogic';
 
 const SIDEBAR_ITEMS: Array<{ key: AdminSection; label: string; icon: typeof LayoutDashboard }> = [
   { key: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'wizard', label: 'Add Project', icon: FolderPlus },
   { key: 'projects', label: 'Projects', icon: FolderKanban },
+  { key: 'media', label: 'Media Library', icon: Image },
   { key: 'profile', label: 'Profile & CV', icon: UserCog },
   { key: 'skills', label: 'Skills', icon: Layers },
   { key: 'research', label: 'Research', icon: BookOpen },
@@ -65,6 +73,7 @@ const SIDEBAR_ITEMS: Array<{ key: AdminSection; label: string; icon: typeof Layo
 export default function AdminPage() {
   const { user, authReady, isAdmin, isSigningIn, authError, signInWithGoogle, signOut } = useAuth();
   const { syncStatus, lastSavedAt } = useSyncStatus();
+  const shouldReduce = useReducedMotion();
 
   const [section, setSection] = useState<AdminSection>('overview');
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -81,6 +90,8 @@ export default function AdminPage() {
   const [experiences, setExperiences] = useState<ExperienceEntry[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<MediaFileRecord[]>([]);
+  const [driveConfig, setDriveConfig] = useState<DriveWorkspaceConfig | null>(null);
 
   useEffect(() => {
     void purgeExpiredDrafts();
@@ -115,6 +126,8 @@ export default function AdminPage() {
       onAllExperiences: setExperiences,
       onMessages: setMessages,
       onAuditLogs: setAuditLogs,
+      onMediaFiles: setMediaFiles,
+      onDriveConfig: setDriveConfig,
     });
 
     return () => {
@@ -167,8 +180,14 @@ export default function AdminPage() {
 
   if (!user || !isAdmin) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#050816] px-4 kl-atmosphere">
-        <div className="kl-surface w-full max-w-md rounded-2xl p-8">
+      <RouteTransition className="relative flex min-h-screen items-center justify-center bg-[#050816] px-4 kl-atmosphere">
+        <SignatureAtmosphere />
+        <motion.div
+          initial={shouldReduce ? { opacity: 1 } : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: KLARENCY_DURATIONS.base, ease: KLARENCY_EASE }}
+          className="kl-surface relative z-10 w-full max-w-md rounded-2xl p-8"
+        >
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2563EB]/20 text-[#22D3EE]">
               <ShieldCheck className="h-6 w-6" aria-hidden="true" />
@@ -196,25 +215,27 @@ export default function AdminPage() {
           )}
 
           <div className="mt-6 space-y-3">
-            <button
+            <motion.button
               type="button"
               disabled={isSigningIn}
+              whileHover={shouldReduce ? undefined : { y: -1 }}
+              whileTap={shouldReduce ? undefined : { scale: 0.985 }}
               onClick={() => void signInWithGoogle()}
               className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50"
             >
               {isSigningIn ? 'Signing in…' : 'Sign in with Google'}
-            </button>
+            </motion.button>
 
             <Link
               to="/"
-              className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-slate-400/20 px-4 text-xs font-medium text-[#94A3B8] hover:text-[#F8FAFC]"
+              className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-slate-400/20 px-4 text-xs font-medium text-[#94A3B8] transition-colors hover:text-[#F8FAFC]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span>Return to public portfolio</span>
             </Link>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </RouteTransition>
     );
   }
 
@@ -222,7 +243,7 @@ export default function AdminPage() {
   const unreadCount = messages.filter((m) => m.status === 'unread').length;
 
   return (
-    <div className="min-h-screen bg-[#050816] text-[#F8FAFC] lg:flex">
+    <RouteTransition className="min-h-screen bg-[#050816] text-[#F8FAFC] lg:flex">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-400/15 bg-[#080D1C] p-5 lg:flex">
         <div className="flex items-center justify-between border-b border-slate-400/15 pb-4">
           <Link to="/" className="font-display text-lg font-bold tracking-tight text-[#F8FAFC]">
@@ -318,95 +339,141 @@ export default function AdminPage() {
           </div>
         </header>
 
-        {mobileMenuOpen && (
-          <nav
-            aria-label="Mobile administrator navigation"
-            className="border-b border-slate-400/15 bg-[#080D1C] p-4 lg:hidden"
-          >
-            <div className="grid grid-cols-2 gap-2">
-              {SIDEBAR_ITEMS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => {
-                    if (item.key !== 'wizard') setEditingProject(null);
-                    setSection(item.key);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`min-h-[44px] rounded-lg px-3 text-left text-xs font-medium ${
-                    section === item.key
-                      ? 'bg-[#2563EB] text-white'
-                      : 'border border-slate-400/15 text-[#94A3B8]'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-slate-400/20 text-xs text-[#94A3B8]"
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.nav
+              aria-label="Mobile administrator navigation"
+              initial={shouldReduce ? { opacity: 1 } : { opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: KLARENCY_DURATIONS.fast, ease: KLARENCY_EASE }}
+              className="border-b border-slate-400/15 bg-[#080D1C] p-4 lg:hidden"
             >
-              <LogOut className="h-4 w-4" />
-              <span>Sign out</span>
-            </button>
-          </nav>
-        )}
+              <div className="grid grid-cols-2 gap-2">
+                {SIDEBAR_ITEMS.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      if (item.key !== 'wizard') setEditingProject(null);
+                      setSection(item.key);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`min-h-[44px] rounded-lg px-3 text-left text-xs font-medium ${
+                      section === item.key
+                        ? 'bg-[#2563EB] text-white'
+                        : 'border border-slate-400/15 text-[#94A3B8]'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-slate-400/20 text-xs text-[#94A3B8]"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign out</span>
+              </button>
+            </motion.nav>
+          )}
+        </AnimatePresence>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {section === 'overview' && (
-            <DashboardHome
-              profile={profile}
-              projects={projects}
-              skills={skills}
-              messages={messages}
-              auditLogs={auditLogs}
-              hasRecoverableDraft={hasRecoverableDraft}
-              onNavigate={(next) => {
-                if (next === 'wizard') setEditingProject(null);
-                setSection(next);
-              }}
-              onReopenGuide={() => setOnboardingOpen(true)}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={section}
+              initial={shouldReduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
+              transition={{ duration: KLARENCY_DURATIONS.fast, ease: KLARENCY_EASE }}
+            >
+              {section === 'overview' && (
+                <DashboardHome
+                  profile={profile}
+                  projects={projects}
+                  skills={skills}
+                  messages={messages}
+                  auditLogs={auditLogs}
+                  hasRecoverableDraft={hasRecoverableDraft}
+                  onNavigate={(next) => {
+                    if (next === 'wizard') setEditingProject(null);
+                    setSection(next);
+                  }}
+                  onReopenGuide={() => setOnboardingOpen(true)}
+                />
+              )}
 
-          {section === 'wizard' && (
-            <GuidedProjectWizard
-              editingProject={editingProject}
-              onFinished={() => {
-                setEditingProject(null);
-                setSection('projects');
-              }}
-              onCancel={() => {
-                setEditingProject(null);
-                setSection('projects');
-              }}
-            />
-          )}
+              {section === 'wizard' && (
+                <GuidedProjectWizard
+                  editingProject={editingProject}
+                  mediaFiles={mediaFiles}
+                  driveConfig={driveConfig}
+                  onFinished={() => {
+                    setEditingProject(null);
+                    setSection('projects');
+                  }}
+                  onCancel={() => {
+                    setEditingProject(null);
+                    setSection('projects');
+                  }}
+                />
+              )}
 
-          {section === 'projects' && (
-            <ProjectsManager
-              projects={projects}
-              onCreateNew={() => {
-                setEditingProject(null);
-                setSection('wizard');
-              }}
-              onEditProject={(proj) => {
-                setEditingProject(proj);
-                setSection('wizard');
-              }}
-            />
-          )}
+              {section === 'projects' && (
+                <ProjectsManager
+                  projects={projects}
+                  onCreateNew={() => {
+                    setEditingProject(null);
+                    setSection('wizard');
+                  }}
+                  onEditProject={(proj) => {
+                    setEditingProject(proj);
+                    setSection('wizard');
+                  }}
+                />
+              )}
 
-          {section === 'profile' && (
-            <ProfileSettingsEditor profile={profile} privateSettings={privateSettings} />
-          )}
+              {section === 'media' && (
+                <MediaLibraryManager
+                  mediaFiles={mediaFiles}
+                  driveConfig={driveConfig}
+                  profile={profile}
+                  projects={projects}
+                  research={research}
+                  experiences={experiences}
+                />
+              )}
 
-          {section === 'skills' && <SkillsManager skills={skills} />}
-          {section === 'research' && <ResearchManager research={research} />}
-          {section === 'experience' && <ExperienceManager experiences={experiences} />}
-          {section === 'messages' && <MessagesInbox messages={messages} />}
+              {section === 'profile' && (
+                <ProfileSettingsEditor
+                  profile={profile}
+                  privateSettings={privateSettings}
+                  mediaFiles={mediaFiles}
+                  driveConfig={driveConfig}
+                />
+              )}
+
+              {section === 'skills' && <SkillsManager skills={skills} />}
+              {section === 'research' && (
+                <ResearchManager
+                  research={research}
+                  mediaFiles={mediaFiles}
+                  driveConfig={driveConfig}
+                />
+              )}
+              {section === 'experience' && (
+                <ExperienceManager
+                  experiences={experiences}
+                  mediaFiles={mediaFiles}
+                  driveConfig={driveConfig}
+                />
+              )}
+              {section === 'messages' && <MessagesInbox messages={messages} />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
@@ -425,8 +492,9 @@ export default function AdminPage() {
         research={research}
         experiences={experiences}
         messages={messages}
+        mediaFiles={mediaFiles}
         onSelectItem={handleSelectSearch}
       />
-    </div>
+    </RouteTransition>
   );
 }

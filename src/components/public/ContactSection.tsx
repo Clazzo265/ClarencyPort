@@ -1,16 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckCircle2, Send } from 'lucide-react';
+import { CheckCircle2, Loader2, Send } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { submitContactMessage } from '../../services/portfolioService';
+import { KLARENCY_DURATIONS, KLARENCY_EASE } from '../../utils/motionTokens';
 import { canSubmitContact } from '../../utils/portfolioLogic';
 import { contactFormSchema, type ContactFormValues } from '../../utils/validation';
+import { SectionReveal } from '../motion/MotionPrimitives';
 
 export function ContactSection() {
   const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const lastSubmittedAtRef = useRef<number | null>(null);
   const lastPayloadHashRef = useRef<string>('');
+  const shouldReduce = useReducedMotion();
 
   const {
     register,
@@ -58,8 +62,8 @@ export function ContactSection() {
   };
 
   return (
-    <section id="contact" className="py-16 sm:py-24">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
+    <section id="contact" className="relative z-10 py-16 sm:py-24">
+      <SectionReveal className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-12 lg:px-8">
         <div className="lg:col-span-5">
           <h2 className="font-display text-2xl font-semibold tracking-tight text-[#F8FAFC] sm:text-3xl">
             Get in Touch
@@ -81,146 +85,164 @@ export function ContactSection() {
         </div>
 
         <div className="lg:col-span-7">
-          {submitState === 'success' ? (
-            <div
-              role="status"
-              className="kl-surface rounded-2xl p-8"
-            >
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-[#22D3EE]" aria-hidden="true" />
-                <div>
-                  <h3 className="font-display text-xl font-semibold text-[#F8FAFC]">
-                    Message received
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[#94A3B8]">
-                    Thank you for reaching out. Your inquiry has been securely delivered to Clarence
-                    L. Chilongo&apos;s private inbox.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSubmitState('idle')}
-                    className="mt-5 min-h-[44px] rounded-lg border border-slate-400/25 px-4 py-2 text-sm font-medium text-[#F8FAFC] hover:bg-[#101A2E]"
-                  >
-                    Send another message
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              noValidate
-              className="kl-surface space-y-5 rounded-2xl p-6 sm:p-8"
-            >
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="contact-name"
-                    className="block text-sm font-medium text-[#F8FAFC]"
-                  >
-                    Name
-                  </label>
-                  <input
-                    id="contact-name"
-                    type="text"
-                    autoComplete="name"
-                    {...register('senderName')}
-                    className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 focus:border-[#22D3EE]"
-                    placeholder="Your full name"
-                  />
-                  {errors.senderName && (
-                    <p role="alert" className="mt-1.5 text-xs text-rose-400">
-                      {errors.senderName.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="contact-email"
-                    className="block text-sm font-medium text-[#F8FAFC]"
-                  >
-                    Email address
-                  </label>
-                  <input
-                    id="contact-email"
-                    type="email"
-                    autoComplete="email"
-                    {...register('senderEmail')}
-                    className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 focus:border-[#22D3EE]"
-                    placeholder="you@organization.com"
-                  />
-                  {errors.senderEmail && (
-                    <p role="alert" className="mt-1.5 text-xs text-rose-400">
-                      {errors.senderEmail.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="contact-subject"
-                  className="block text-sm font-medium text-[#F8FAFC]"
-                >
-                  Subject
-                </label>
-                <input
-                  id="contact-subject"
-                  type="text"
-                  {...register('subject')}
-                  className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 focus:border-[#22D3EE]"
-                  placeholder="Internship, project inquiry, or collaboration"
-                />
-                {errors.subject && (
-                  <p role="alert" className="mt-1.5 text-xs text-rose-400">
-                    {errors.subject.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="contact-message"
-                  className="block text-sm font-medium text-[#F8FAFC]"
-                >
-                  Message
-                </label>
-                <textarea
-                  id="contact-message"
-                  rows={5}
-                  {...register('message')}
-                  className="mt-1.5 w-full rounded-lg border border-slate-400/20 bg-[#050816] p-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 focus:border-[#22D3EE]"
-                  placeholder="Share details about your inquiry or project timeline..."
-                />
-                {errors.message && (
-                  <p role="alert" className="mt-1.5 text-xs text-rose-400">
-                    {errors.message.message}
-                  </p>
-                )}
-              </div>
-
-              {errorMessage && (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-4 py-3 text-sm text-rose-300"
-                >
-                  {errorMessage}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitState === 'submitting'}
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60 sm:w-auto"
+          <AnimatePresence mode="wait">
+            {submitState === 'success' ? (
+              <motion.div
+                key="contact-success"
+                role="status"
+                initial={shouldReduce ? { opacity: 1 } : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: KLARENCY_DURATIONS.fast, ease: KLARENCY_EASE }}
+                className="kl-surface rounded-2xl p-8"
               >
-                <Send className="h-4 w-4" aria-hidden="true" />
-                <span>{submitState === 'submitting' ? 'Sending message…' : 'Send Message'}</span>
-              </button>
-            </form>
-          )}
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-[#22D3EE]" aria-hidden="true" />
+                  <div>
+                    <h3 className="font-display text-xl font-semibold text-[#F8FAFC]">
+                      Message received
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[#94A3B8]">
+                      Thank you for reaching out. Your inquiry has been securely delivered to
+                      Clarence L. Chilongo&apos;s private inbox.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSubmitState('idle')}
+                      className="mt-5 min-h-[44px] rounded-lg border border-slate-400/25 px-4 py-2 text-sm font-medium text-[#F8FAFC] transition-colors hover:bg-[#101A2E]"
+                    >
+                      Send another message
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.form
+                key="contact-form"
+                initial={shouldReduce ? { opacity: 1 } : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: KLARENCY_DURATIONS.fast }}
+                onSubmit={handleSubmit(onSubmit)}
+                noValidate
+                className="kl-surface space-y-5 rounded-2xl p-6 sm:p-8"
+              >
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="contact-name"
+                      className="block text-sm font-medium text-[#F8FAFC]"
+                    >
+                      Name
+                    </label>
+                    <input
+                      id="contact-name"
+                      type="text"
+                      autoComplete="name"
+                      {...register('senderName')}
+                      className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 transition-colors duration-150 focus:border-[#22D3EE]"
+                      placeholder="Your full name"
+                    />
+                    {errors.senderName && (
+                      <p role="alert" className="mt-1.5 text-xs text-rose-400">
+                        {errors.senderName.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="contact-email"
+                      className="block text-sm font-medium text-[#F8FAFC]"
+                    >
+                      Email address
+                    </label>
+                    <input
+                      id="contact-email"
+                      type="email"
+                      autoComplete="email"
+                      {...register('senderEmail')}
+                      className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 transition-colors duration-150 focus:border-[#22D3EE]"
+                      placeholder="you@organization.com"
+                    />
+                    {errors.senderEmail && (
+                      <p role="alert" className="mt-1.5 text-xs text-rose-400">
+                        {errors.senderEmail.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="contact-subject"
+                    className="block text-sm font-medium text-[#F8FAFC]"
+                  >
+                    Subject
+                  </label>
+                  <input
+                    id="contact-subject"
+                    type="text"
+                    {...register('subject')}
+                    className="mt-1.5 min-h-[44px] w-full rounded-lg border border-slate-400/20 bg-[#050816] px-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 transition-colors duration-150 focus:border-[#22D3EE]"
+                    placeholder="Internship, project inquiry, or collaboration"
+                  />
+                  {errors.subject && (
+                    <p role="alert" className="mt-1.5 text-xs text-rose-400">
+                      {errors.subject.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="contact-message"
+                    className="block text-sm font-medium text-[#F8FAFC]"
+                  >
+                    Message
+                  </label>
+                  <textarea
+                    id="contact-message"
+                    rows={5}
+                    {...register('message')}
+                    className="mt-1.5 w-full rounded-lg border border-slate-400/20 bg-[#050816] p-3.5 text-sm text-[#F8FAFC] placeholder:text-[#94A3B8]/60 transition-colors duration-150 focus:border-[#22D3EE]"
+                    placeholder="Share details about your inquiry or project timeline..."
+                  />
+                  {errors.message && (
+                    <p role="alert" className="mt-1.5 text-xs text-rose-400">
+                      {errors.message.message}
+                    </p>
+                  )}
+                </div>
+
+                {errorMessage && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-4 py-3 text-sm text-rose-300"
+                  >
+                    {errorMessage}
+                  </div>
+                )}
+
+                <motion.button
+                  type="submit"
+                  disabled={submitState === 'submitting'}
+                  whileHover={shouldReduce || submitState === 'submitting' ? undefined : { y: -1 }}
+                  whileTap={shouldReduce || submitState === 'submitting' ? undefined : { scale: 0.985 }}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60 sm:w-auto"
+                >
+                  {submitState === 'submitting' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span>{submitState === 'submitting' ? 'Sending message…' : 'Send Message'}</span>
+                </motion.button>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </SectionReveal>
     </section>
   );
 }
